@@ -1,0 +1,44 @@
+# FastAPI Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+sqlalchemy==2.0.36
+alembic==1.14.0
+
+# Database Drivers (choose one based on your DB)
+# For SQLite (default, no extra install needed)
+# For PostgreSQL:
+# psycopg2-binary==2.9.10
+# For MySQL:
+# pymysql==1.1.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.18
+
+# Validation & Settings
+pydantic==2.10.3
+pydantic-settings==2.6.1
+email-validator==2.2.0
+
+# CORS (for frontend-backend communication)
+# Already included in FastAPI
+
+# Date/Time handling
+python-dateutil==2.9.0
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Optional: For PDF report generation
+# reportlab==4.2.5
+# weasyprint==62.3
+
+# Optional: For Excel export
+# openpyxl==3.1.5
+
+# Development
+httpx==0.28.1
+pytest==8.3.4
