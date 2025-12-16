@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Management - HMS</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div class="sidebar" id="sidebar"></div>
@@ -88,58 +88,68 @@
         </div>
     </div>
 
-    <script src="js/data.js"></script>
-    <script src="js/common.js"></script>
+    <script src="/static/js/data.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
         // Render patients table
-        function renderPatients(list = null) {
-            const patients = list || HMS.patients.getAll();
-            document.getElementById('patientsTable').innerHTML = patients.map(p => `
-                <tr>
-                    <td>${p.id}</td>
-                    <td>${p.name}</td>
-                    <td>${p.age}</td>
-                    <td>${p.gender}</td>
-                    <td>${p.phone}</td>
-                    <td>${p.nic}</td>
-                    <td>${p.regDate}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="openPatientModal('${p.id}')">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')">Delete</button>
-                    </td>
-                </tr>
-            `).join('') || '<tr><td colspan="8" style="text-align:center;">No patients found</td></tr>';
+        async function renderPatients(list = null) {
+            try {
+                const patients = list || await API.Patients.getAll();
+                document.getElementById('patientsTable').innerHTML = patients.map(p => `
+                    <tr>
+                        <td>${p.patient_id}</td>
+                        <td>${p.patient_name}</td>
+                        <td>${p.age}</td>
+                        <td>${p.gender}</td>
+                        <td>${p.phone_number}</td>
+                        <td>${p.nic}</td>
+                        <td>${formatDate(p.registration_date)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="openPatientModal(${p.patient_id})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deletePatient(${p.patient_id})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('') || '<tr><td colspan="8" style="text-align:center;">No patients found</td></tr>';
+            } catch (error) {
+                console.error('Error loading patients:', error);
+                document.getElementById('patientsTable').innerHTML = '<tr><td colspan="8" style="text-align:center; color: red;">Error loading patients</td></tr>';
+            }
         }
 
         // Search patients
-        function searchPatients() {
+        async function searchPatients() {
             const query = document.getElementById('patientSearch').value.toLowerCase();
-            const patients = HMS.patients.getAll();
-            const filtered = patients.filter(p => 
-                p.name.toLowerCase().includes(query) || 
-                p.nic.toLowerCase().includes(query) || 
-                p.phone.includes(query)
-            );
-            renderPatients(filtered);
+            try {
+                const patients = await API.Patients.getAll(query);
+                renderPatients(patients);
+            } catch (error) {
+                console.error('Error searching patients:', error);
+                showToast('Error searching patients', 'error');
+            }
         }
 
         // Open modal
-        function openPatientModal(id = null) {
+        async function openPatientModal(id = null) {
             document.getElementById('patientModal').classList.add('active');
             document.getElementById('patientForm').reset();
             document.getElementById('patientEditId').value = '';
             document.getElementById('patientModalTitle').textContent = 'Add New Patient';
 
             if (id) {
-                const p = HMS.patients.getById(id);
-                if (p) {
-                    document.getElementById('patientModalTitle').textContent = 'Edit Patient';
-                    document.getElementById('patientEditId').value = p.id;
-                    document.getElementById('patientName').value = p.name;
-                    document.getElementById('patientAge').value = p.age;
-                    document.getElementById('patientGender').value = p.gender;
-                    document.getElementById('patientPhone').value = p.phone;
-                    document.getElementById('patientNIC').value = p.nic;
+                try {
+                    const p = await API.Patients.getById(id);
+                    if (p) {
+                        document.getElementById('patientModalTitle').textContent = 'Edit Patient';
+                        document.getElementById('patientEditId').value = p.patient_id;
+                        document.getElementById('patientName').value = p.patient_name;
+                        document.getElementById('patientAge').value = p.age;
+                        document.getElementById('patientGender').value = p.gender;
+                        document.getElementById('patientPhone').value = p.phone_number;
+                        document.getElementById('patientNIC').value = p.nic;
+                    }
+                } catch (error) {
+                    console.error('Error loading patient:', error);
+                    showToast('Error loading patient data', 'error');
                 }
             }
         }
@@ -150,40 +160,48 @@
         }
 
         // Save patient
-        function savePatient(e) {
+        async function savePatient(e) {
             e.preventDefault();
             const editId = document.getElementById('patientEditId').value;
-            const nic = document.getElementById('patientNIC').value;
-
-            // Check for duplicate NIC
-            if (HMS.patients.exists(nic, editId)) {
-                alert('A patient with this NIC already exists!');
-                return;
-            }
-
+            
             const data = {
-                name: document.getElementById('patientName').value,
+                patient_name: document.getElementById('patientName').value,
                 age: parseInt(document.getElementById('patientAge').value),
                 gender: document.getElementById('patientGender').value,
-                phone: document.getElementById('patientPhone').value,
-                nic: nic
+                phone_number: document.getElementById('patientPhone').value,
+                nic: document.getElementById('patientNIC').value
             };
 
-            if (editId) {
-                HMS.patients.update(editId, data);
-            } else {
-                HMS.patients.add(data);
-            }
+            try {
+                if (editId) {
+                    // Update existing patient
+                    await API.Patients.update(editId, data);
+                    showToast('Patient updated successfully!', 'success');
+                } else {
+                    // Create new patient
+                    await API.Patients.create(data);
+                    showToast('Patient registered successfully!', 'success');
+                }
 
-            closePatientModal();
-            renderPatients();
+                closePatientModal();
+                await renderPatients(); // Reload from database
+            } catch (error) {
+                console.error('Error saving patient:', error);
+                showToast(error.message || 'Failed to save patient', 'error');
+            }
         }
 
         // Delete patient
-        function deletePatient(id) {
+        async function deletePatient(id) {
             if (confirm('Are you sure you want to delete this patient?')) {
-                HMS.patients.delete(id);
-                renderPatients();
+                try {
+                    await API.Patients.delete(id);
+                    showToast('Patient deleted successfully!', 'success');
+                    await renderPatients();
+                } catch (error) {
+                    console.error('Error deleting patient:', error);
+                    showToast(error.message || 'Failed to delete patient', 'error');
+                }
             }
         }
 
@@ -201,5 +219,6 @@
             checkUrlParams();
         });
     </script>
+    <script src="/static/js/api.js"></script>
 </body>
 </html>

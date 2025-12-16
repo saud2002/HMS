@@ -1,0 +1,25 @@
+# Minimal requirements for HMS core functionality
+# Use this if you have issues with the full requirements.txt
+
+# FastAPI Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+sqlalchemy==2.0.36
+
+# MySQL Driver
+pymysql==1.1.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.18
+
+# Validation & Settings
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Environment variables
+python-dotenv==1.0.1

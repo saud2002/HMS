@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HMS Dashboard - Hospital Management System</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div class="sidebar" id="sidebar"></div>
@@ -59,7 +59,7 @@
                     <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                     Register New Patient
                 </a>
-                <a href="appointments.html" class="action-btn">
+                <a href="/appointments.html" class="action-btn">
                     <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
                     New Appointment
                 </a>
@@ -67,7 +67,7 @@
                     <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6z"/></svg>
                     Add Doctor
                 </a>
-                <a href="reports.html" class="action-btn">
+                <a href="/reports.html" class="action-btn">
                     <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
                     View Reports
                 </a>
@@ -81,16 +81,25 @@
         </div>
     </div>
 
-    <script src="js/data.js"></script>
-    <script src="js/common.js"></script>
+    <script src="/static/js/data.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
         // Update stats
-        function updateStats() {
-            const stats = HMS.getStats();
-            document.getElementById('statPatients').textContent = stats.totalPatients;
-            document.getElementById('statDoctors').textContent = stats.activeDoctors;
-            document.getElementById('statAppointments').textContent = stats.todayAppointments;
-            document.getElementById('statRevenue').textContent = '$' + stats.todayRevenue.toLocaleString();
+        async function updateStats() {
+            try {
+                const stats = await API.Dashboard.getStats();
+                document.getElementById('statPatients').textContent = stats.total_patients;
+                document.getElementById('statDoctors').textContent = stats.total_doctors;
+                document.getElementById('statAppointments').textContent = stats.today_appointments;
+                document.getElementById('statRevenue').textContent = 'Rs. ' + stats.today_revenue.toLocaleString();
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+                // Set default values on error
+                document.getElementById('statPatients').textContent = '0';
+                document.getElementById('statDoctors').textContent = '0';
+                document.getElementById('statAppointments').textContent = '0';
+                document.getElementById('statRevenue').textContent = 'Rs. 0';
+            }
         }
 
         // Render activities
@@ -124,5 +133,6 @@
             renderActivities();
         });
     </script>
+    <script src="/static/js/api.js"></script>
 </body>
 </html>

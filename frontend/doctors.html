@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Management - HMS</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div class="sidebar" id="sidebar"></div>
@@ -84,40 +84,50 @@
         </div>
     </div>
 
-    <script src="js/data.js"></script>
-    <script src="js/common.js"></script>
+    <script src="/static/js/data.js"></script>
+    <script src="/static/js/common.js"></script>
     <script>
         // Render doctors table
-        function renderDoctors(list = null) {
-            const doctors = list || HMS.doctors.getAll();
+        async function renderDoctors(list = null) {
+            try {
+                const doctors = list || await API.Doctors.getAll();
             document.getElementById('doctorsTable').innerHTML = doctors.map(d => `
                 <tr>
-                    <td>${d.id}</td>
-                    <td>${d.name}</td>
+                    <td>${d.doctor_id}</td>
+                    <td>${d.doctor_name}</td>
                     <td>${d.specialization}</td>
-                    <td>$${d.fee}</td>
+                    <td>$${d.consultation_charges.toLocaleString()}</td>
                     <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="openDoctorModal('${d.id}')">Edit</button>
-                        <button class="btn btn-sm btn-secondary" onclick="toggleDoctorStatus('${d.id}')">${d.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
+                        <button class="btn btn-sm btn-primary" onclick="openDoctorModal('${d.doctor_id}')">Edit</button>
+                        <button class="btn btn-sm btn-secondary" onclick="toggleDoctorStatus('${d.doctor_id}')">${d.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="6" style="text-align:center;">No doctors found</td></tr>';
+            } catch (error) {
+                console.error('Error loading doctors:', error);
+                document.getElementById('doctorsTable').innerHTML = '<tr><td colspan="6" style="text-align:center; color: red;">Error loading doctors</td></tr>';
+            }
         }
 
         // Search doctors
-        function searchDoctors() {
-            const query = document.getElementById('doctorSearch').value.toLowerCase();
-            const doctors = HMS.doctors.getAll();
-            const filtered = doctors.filter(d => 
-                d.name.toLowerCase().includes(query) || 
-                d.specialization.toLowerCase().includes(query)
-            );
-            renderDoctors(filtered);
+        async function searchDoctors() {
+            try {
+                const query = document.getElementById('doctorSearch').value.toLowerCase();
+                const doctors = await API.Doctors.getAll();
+                const filtered = doctors.filter(d => 
+                    d.doctor_name.toLowerCase().includes(query) || 
+                    d.specialization.toLowerCase().includes(query)
+                );
+                renderDoctors(filtered);
+            } catch (error) {
+                console.error('Error searching doctors:', error);
+                showToast('Error searching doctors', 'error');
+            }
         }
 
         // Open modal
-        function openDoctorModal(id = null) {
+        async function openDoctorModal(id = null) {
             document.getElementById('doctorModal').classList.add('active');
             document.getElementById('doctorForm').reset();
             document.getElementById('doctorEditId').value = '';
@@ -125,16 +135,21 @@
             document.getElementById('doctorId').readOnly = false;
 
             if (id) {
-                const d = HMS.doctors.getById(id);
-                if (d) {
-                    document.getElementById('doctorModalTitle').textContent = 'Edit Doctor';
-                    document.getElementById('doctorEditId').value = d.id;
-                    document.getElementById('doctorId').value = d.id;
-                    document.getElementById('doctorId').readOnly = true;
-                    document.getElementById('doctorName').value = d.name;
-                    document.getElementById('doctorSpecialization').value = d.specialization;
-                    document.getElementById('doctorFee').value = d.fee;
-                    document.getElementById('doctorStatus').value = d.status;
+                try {
+                    const d = await API.Doctors.getById(id);
+                    if (d) {
+                        document.getElementById('doctorModalTitle').textContent = 'Edit Doctor';
+                        document.getElementById('doctorEditId').value = d.doctor_id;
+                        document.getElementById('doctorId').value = d.doctor_id;
+                        document.getElementById('doctorId').readOnly = true;
+                        document.getElementById('doctorName').value = d.doctor_name;
+                        document.getElementById('doctorSpecialization').value = d.specialization;
+                        document.getElementById('doctorFee').value = d.consultation_charges;
+                        document.getElementById('doctorStatus').value = d.status;
+                    }
+                } catch (error) {
+                    console.error('Error loading doctor:', error);
+                    showToast('Error loading doctor details', 'error');
                 }
             }
         }
@@ -145,39 +160,46 @@
         }
 
         // Save doctor
-        function saveDoctor(e) {
+        async function saveDoctor(e) {
             e.preventDefault();
             const editId = document.getElementById('doctorEditId').value;
-            const docId = document.getElementById('doctorId').value;
-
-            // Check for duplicate ID (only for new doctors)
-            if (!editId && HMS.doctors.exists(docId)) {
-                alert('A doctor with this ID already exists!');
-                return;
-            }
-
+            
             const data = {
-                id: docId,
-                name: document.getElementById('doctorName').value,
+                doctor_id: document.getElementById('doctorId').value,
+                doctor_name: document.getElementById('doctorName').value,
                 specialization: document.getElementById('doctorSpecialization').value,
-                fee: parseFloat(document.getElementById('doctorFee').value),
-                status: document.getElementById('doctorStatus').value
+                consultation_charges: parseFloat(document.getElementById('doctorFee').value)
             };
 
-            if (editId) {
-                HMS.doctors.update(editId, data);
-            } else {
-                HMS.doctors.add(data);
-            }
+            try {
+                if (editId) {
+                    // Update existing doctor
+                    await API.Doctors.update(editId, data);
+                    showToast('Doctor updated successfully!', 'success');
+                } else {
+                    // Create new doctor
+                    await API.Doctors.create(data);
+                    showToast('Doctor added successfully!', 'success');
+                }
 
-            closeDoctorModal();
-            renderDoctors();
+                closeDoctorModal();
+                await renderDoctors(); // Reload from database
+            } catch (error) {
+                console.error('Error saving doctor:', error);
+                showToast(error.message || 'Failed to save doctor', 'error');
+            }
         }
 
         // Toggle doctor status
-        function toggleDoctorStatus(id) {
-            HMS.doctors.toggleStatus(id);
-            renderDoctors();
+        async function toggleDoctorStatus(id) {
+            try {
+                await API.Doctors.deactivate(id);
+                showToast('Doctor status updated successfully!', 'success');
+                await renderDoctors(); // Reload from database
+            } catch (error) {
+                console.error('Error updating doctor status:', error);
+                showToast('Failed to update doctor status', 'error');
+            }
         }
 
         // Check for action parameter
@@ -194,5 +216,6 @@
             checkUrlParams();
         });
     </script>
+    <script src="/static/js/api.js"></script>
 </body>
 </html>

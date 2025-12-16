@@ -1,8 +1,8 @@
-// js/api.js - API Service for connecting frontend to FastAPI backend
+// js/api.js - API Service for HMS Frontend
+// Use relative URLs so frontend works on same server as backend
+const API_BASE_URL = '/api';
 
-const API_BASE_URL = 'http://localhost:8000/api';
-
-// Generic fetch wrapper with error handling
+// Generic fetch wrapper
 async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const config = {
@@ -10,86 +10,96 @@ async function apiRequest(endpoint, options = {}) {
         ...options
     };
     
-    // Add auth token if available
     const token = localStorage.getItem('access_token');
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
+    if (token) config.headers['Authorization'] = `Bearer ${token}`;
     
-    try {
-        const response = await fetch(url, config);
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-            throw new Error(error.detail || `HTTP ${response.status}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error(`API Error [${endpoint}]:`, error);
-        throw error;
+    const response = await fetch(url, config);
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Error occurred' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
     }
+    return response.json();
 }
 
 // ==================== DASHBOARD ====================
-const DashboardAPI = {
-    getStats: () => apiRequest('/dashboard/stats'),
-    healthCheck: () => apiRequest('/health')
+const Dashboard = {
+    getStats: () => apiRequest('/dashboard/stats')
 };
 
 // ==================== PATIENTS ====================
-const PatientsAPI = {
-    getAll: (params = {}) => {
-        const query = new URLSearchParams(params).toString();
-        return apiRequest(`/patients/${query ? '?' + query : ''}`);
-    },
+const Patients = {
+    getAll: (search = '') => apiRequest(`/patients${search ? `?search=${encodeURIComponent(search)}` : ''}`),
     getById: (id) => apiRequest(`/patients/${id}`),
-    create: (data) => apiRequest('/patients/', { method: 'POST', body: JSON.stringify(data) }),
+    getByNIC: (nic) => apiRequest(`/patients/nic/${nic}`),
+    create: (data) => apiRequest('/patients', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiRequest(`/patients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id) => apiRequest(`/patients/${id}`, { method: 'DELETE' }),
-    search: (query) => apiRequest(`/patients/?search=${encodeURIComponent(query)}`)
+    delete: (id) => apiRequest(`/patients/${id}`, { method: 'DELETE' })
 };
 
 // ==================== DOCTORS ====================
-const DoctorsAPI = {
-    getAll: (params = {}) => {
-        const query = new URLSearchParams(params).toString();
-        return apiRequest(`/doctors/${query ? '?' + query : ''}`);
-    },
+const Doctors = {
+    getAll: (status = 'Active') => apiRequest(`/doctors?status=${status}`),
     getById: (id) => apiRequest(`/doctors/${id}`),
-    create: (data) => apiRequest('/doctors/', { method: 'POST', body: JSON.stringify(data) }),
+    getSpecializations: () => apiRequest('/doctors/specializations'),
+    create: (data) => apiRequest('/doctors', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiRequest(`/doctors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id) => apiRequest(`/doctors/${id}`, { method: 'DELETE' }),
-    getSpecializations: () => apiRequest('/doctors/specializations')
+    deactivate: (id) => apiRequest(`/doctors/${id}`, { method: 'DELETE' })
 };
 
 // ==================== APPOINTMENTS ====================
-const AppointmentsAPI = {
+const Appointments = {
     getAll: (params = {}) => {
         const query = new URLSearchParams(params).toString();
-        return apiRequest(`/appointments/${query ? '?' + query : ''}`);
+        return apiRequest(`/appointments${query ? '?' + query : ''}`);
     },
     getById: (id) => apiRequest(`/appointments/${id}`),
     getToday: () => apiRequest('/appointments/today'),
-    create: (data) => apiRequest('/appointments/', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id, data) => apiRequest(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    getDoctorToday: (doctorId) => apiRequest(`/appointments/doctor/${doctorId}/today`),
+    create: (data) => apiRequest('/appointments', { method: 'POST', body: JSON.stringify(data) }),
     updateStatus: (id, status) => apiRequest(`/appointments/${id}/status?status=${status}`, { method: 'PATCH' }),
-    delete: (id) => apiRequest(`/appointments/${id}`, { method: 'DELETE' })
+    cancel: (id) => apiRequest(`/appointments/${id}`, { method: 'DELETE' })
+};
+
+// ==================== ADDITIONAL EXPENSES ====================
+const Expenses = {
+    getByAppointment: (appointmentId) => apiRequest(`/expenses/appointment/${appointmentId}`),
+    add: (data) => apiRequest('/expenses', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id) => apiRequest(`/expenses/${id}`, { method: 'DELETE' })
+};
+
+// ==================== BILLS ====================
+const Bills = {
+    getAll: (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        return apiRequest(`/bills${query ? '?' + query : ''}`);
+    },
+    getById: (id) => apiRequest(`/bills/${id}`),
+    getByAppointment: (appointmentId) => apiRequest(`/bills/appointment/${appointmentId}`),
+    updatePaymentStatus: (id, status) => apiRequest(`/bills/${id}/payment-status?payment_status=${status}`, { method: 'PATCH' })
 };
 
 // ==================== REPORTS ====================
-const ReportsAPI = {
+const Reports = {
     getSummary: (startDate, endDate) => {
         const params = new URLSearchParams();
         if (startDate) params.append('start_date', startDate);
         if (endDate) params.append('end_date', endDate);
         return apiRequest(`/reports/summary?${params}`);
     },
-    getByDoctor: (startDate, endDate) => {
+    getDaily: (date) => apiRequest(`/reports/daily${date ? '?report_date=' + date : ''}`),
+    getDoctorWise: (startDate, endDate) => {
         const params = new URLSearchParams();
         if (startDate) params.append('start_date', startDate);
         if (endDate) params.append('end_date', endDate);
-        return apiRequest(`/reports/appointments-by-doctor?${params}`);
+        return apiRequest(`/reports/doctor-wise?${params}`);
     },
-    getByDate: (startDate, endDate) => {
+    getServiceWise: (startDate, endDate) => {
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        return apiRequest(`/reports/service-wise?${params}`);
+    },
+    getAppointmentsByDate: (startDate, endDate) => {
         const params = new URLSearchParams();
         if (startDate) params.append('start_date', startDate);
         if (endDate) params.append('end_date', endDate);
@@ -98,18 +108,13 @@ const ReportsAPI = {
 };
 
 // ==================== AUTH ====================
-const AuthAPI = {
+const Auth = {
     login: async (username, password) => {
-        const formData = new URLSearchParams();
-        formData.append('username', username);
-        formData.append('password', password);
-        
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
         });
-        
         if (!response.ok) throw new Error('Invalid credentials');
         const data = await response.json();
         localStorage.setItem('access_token', data.access_token);
@@ -120,13 +125,13 @@ const AuthAPI = {
     isAuthenticated: () => !!localStorage.getItem('access_token')
 };
 
-// ==================== UTILITY FUNCTIONS ====================
+// ==================== UTILITIES ====================
 function showToast(message, type = 'success') {
+    const colors = { success: '#10b981', error: '#ef4444', info: '#3b82f6', warning: '#f59e0b' };
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
     toast.textContent = message;
-    toast.style.cssText = `position:fixed;top:20px;right:20px;padding:15px 25px;border-radius:8px;color:white;z-index:9999;
-        background:${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'}`;
+    toast.style.cssText = `position:fixed;top:20px;right:20px;padding:15px 25px;border-radius:8px;
+        color:white;z-index:9999;background:${colors[type] || colors.info};box-shadow:0 4px 12px rgba(0,0,0,0.15)`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }
@@ -135,15 +140,12 @@ function formatDate(dateStr) {
     return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function formatTime(timeStr) {
-    const [h, m] = timeStr.split(':');
-    const hour = parseInt(h);
-    return `${hour > 12 ? hour - 12 : hour}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+function formatCurrency(amount) {
+    return `Rs. ${parseFloat(amount).toLocaleString('en-LK', { minimumFractionDigits: 2 })}`;
 }
 
-// Export for use in other files
-window.API = { Dashboard: DashboardAPI, Patients: PatientsAPI, Doctors: DoctorsAPI, 
-               Appointments: AppointmentsAPI, Reports: ReportsAPI, Auth: AuthAPI };
+// Export
+window.API = { Dashboard, Patients, Doctors, Appointments, Expenses, Bills, Reports, Auth };
 window.showToast = showToast;
 window.formatDate = formatDate;
-window.formatTime = formatTime;
+window.formatCurrency = formatCurrency;

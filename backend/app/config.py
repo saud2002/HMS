@@ -1,45 +1,52 @@
-# ============== app/config.py ==============
+"""
+Configuration settings for HMS
+"""
+import os
+from typing import Optional
 from pydantic_settings import BaseSettings
-from typing import List
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "sqlite:///./hms.db"
-    SECRET_KEY: str = "your-secret-key-change-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:5500", "http://localhost:5500", "null"]
+    # Database
+    database_url: str = "mysql+pymysql://root:@localhost:3306/hms"
+    
+    # Security
+    secret_key: str = "your-secret-key-change-in-production-hms-2024"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 480  # 8 hours
+    
+    # Application
+    app_name: str = "Hospital Management System"
+    app_version: str = "1.0.0"
+    debug: bool = False
+    
+    # CORS
+    allowed_origins: list = ["http://localhost:3000", "http://127.0.0.1:3000", "*"]
+    
+    # File uploads
+    max_file_size: int = 10 * 1024 * 1024  # 10MB
+    upload_dir: str = "uploads"
+    
+    # Pagination
+    default_page_size: int = 50
+    max_page_size: int = 1000
+    
+    # Hospital settings
+    hospital_name: str = "Private Medical Center"
+    hospital_address: str = "123 Medical Street, City"
+    hospital_phone: str = "+94-11-1234567"
+    hospital_email: str = "info@medicalcenter.lk"
     
     class Config:
         env_file = ".env"
+        case_sensitive = False
 
+# Create settings instance
 settings = Settings()
 
+# Database URL with fallback
+DATABASE_URL = settings.database_url
 
-# ============== app/database.py ==============
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from app.config import settings
-
-engine = create_engine(
-    settings.DATABASE_URL, 
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
-)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-# Dependency for getting DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# ============== .env (create this file) ==============
-# DATABASE_URL=sqlite:///./hms.db
-# SECRET_KEY=your-super-secret-key-change-this
-# ALGORITHM=HS256
-# ACCESS_TOKEN_EXPIRE_MINUTES=30
+# JWT Settings
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes

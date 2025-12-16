@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appointments & Billing - HMS</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
     <div class="sidebar" id="sidebar"></div>
@@ -126,8 +126,9 @@
         </div>
     </div>
 
-    <script src="js/data.js"></script>
-    <script src="js/common.js"></script>
+    <script src="/static/js/data.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/api.js"></script>
     <script>
         // Tab switching
         function showTab(tab) {
@@ -146,105 +147,135 @@
         }
 
         // Populate dropdowns
-        function populateDropdowns() {
-            const patients = HMS.patients.getAll();
-            const doctors = HMS.doctors.getActive();
+        async function populateDropdowns() {
+            try {
+                const patients = await API.Patients.getAll();
+                const doctors = await API.Doctors.getAll('Active');
 
-            document.getElementById('appointmentPatient').innerHTML = 
-                '<option value="">-- Select Patient --</option>' +
-                patients.map(p => `<option value="${p.id}">${p.name} (${p.nic})</option>`).join('');
+                document.getElementById('appointmentPatient').innerHTML = 
+                    '<option value="">-- Select Patient --</option>' +
+                    patients.map(p => `<option value="${p.patient_id}">${p.patient_name} (${p.nic})</option>`).join('');
 
-            document.getElementById('appointmentDoctor').innerHTML = 
-                '<option value="">-- Select Doctor --</option>' +
-                doctors.map(d => `<option value="${d.id}">${d.name} - ${d.specialization}</option>`).join('');
+                document.getElementById('appointmentDoctor').innerHTML = 
+                    '<option value="">-- Select Doctor --</option>' +
+                    doctors.map(d => `<option value="${d.doctor_id}">${d.doctor_name} - ${d.specialization}</option>`).join('');
+            } catch (error) {
+                console.error('Error loading dropdowns:', error);
+                showToast('Error loading patients and doctors', 'error');
+            }
         }
 
         // Fill patient details
-        function fillPatientDetails() {
-            const p = HMS.patients.getById(document.getElementById('appointmentPatient').value);
-            document.getElementById('appointmentPatientName').value = p ? p.name : '';
-            document.getElementById('appointmentPatientAge').value = p ? p.age : '';
+        async function fillPatientDetails() {
+            const patientId = document.getElementById('appointmentPatient').value;
+            if (!patientId) {
+                document.getElementById('appointmentPatientName').value = '';
+                document.getElementById('appointmentPatientAge').value = '';
+                return;
+            }
+            
+            try {
+                const p = await API.Patients.getById(patientId);
+                document.getElementById('appointmentPatientName').value = p ? p.patient_name : '';
+                document.getElementById('appointmentPatientAge').value = p ? p.age : '';
+            } catch (error) {
+                console.error('Error loading patient details:', error);
+                document.getElementById('appointmentPatientName').value = '';
+                document.getElementById('appointmentPatientAge').value = '';
+            }
         }
 
         // Fill doctor details
-        function fillDoctorDetails() {
-            const d = HMS.doctors.getById(document.getElementById('appointmentDoctor').value);
-            document.getElementById('appointmentSpecialization').value = d ? d.specialization : '';
-            document.getElementById('appointmentDoctorFee').value = d ? '$' + d.fee : '';
+        async function fillDoctorDetails() {
+            const doctorId = document.getElementById('appointmentDoctor').value;
+            if (!doctorId) {
+                document.getElementById('appointmentSpecialization').value = '';
+                document.getElementById('appointmentDoctorFee').value = '';
+                return;
+            }
+            
+            try {
+                const d = await API.Doctors.getById(doctorId);
+                document.getElementById('appointmentSpecialization').value = d ? d.specialization : '';
+                document.getElementById('appointmentDoctorFee').value = d ? '$' + d.consultation_charges : '';
+            } catch (error) {
+                console.error('Error loading doctor details:', error);
+                document.getElementById('appointmentSpecialization').value = '';
+                document.getElementById('appointmentDoctorFee').value = '';
+            }
         }
 
         // Create appointment
-        function createAppointment() {
-            const patientId = document.getElementById('appointmentPatient').value;
+        async function createAppointment() {
+            const patientId = parseInt(document.getElementById('appointmentPatient').value);
             const doctorId = document.getElementById('appointmentDoctor').value;
 
             if (!patientId || !doctorId) {
-                alert('Please select both patient and doctor');
+                showToast('Please select both patient and doctor', 'error');
                 return;
             }
 
-            const patient = HMS.patients.getById(patientId);
-            const doctor = HMS.doctors.getById(doctorId);
             const hospitalCharges = parseFloat(document.getElementById('hospitalCharges').value) || 0;
 
-            // Gather additional services
-            let additionalServices = [];
-            let additionalTotal = 0;
+            try {
+                // Create appointment
+                const appointmentData = {
+                    patient_id: patientId,
+                    doctor_id: doctorId,
+                    appointment_date: new Date().toISOString().split('T')[0], // Today's date
+                    hospital_charges: hospitalCharges
+                };
 
-            if (document.getElementById('svcDressing').checked) {
-                additionalServices.push({ name: 'Dressing', amount: 25 });
-                additionalTotal += 25;
-            }
-            if (document.getElementById('svcScanning').checked) {
-                additionalServices.push({ name: 'Scanning', amount: 150 });
-                additionalTotal += 150;
-            }
-            if (document.getElementById('svcBlood').checked) {
-                additionalServices.push({ name: 'Blood Testing', amount: 75 });
-                additionalTotal += 75;
-            }
-            if (document.getElementById('svcECG').checked) {
-                additionalServices.push({ name: 'ECG', amount: 100 });
-                additionalTotal += 100;
-            }
-            if (document.getElementById('svcOther').checked) {
-                const otherAmt = parseFloat(document.getElementById('otherServiceAmount').value) || 0;
-                if (otherAmt > 0) {
-                    additionalServices.push({ name: 'Other Services', amount: otherAmt });
-                    additionalTotal += otherAmt;
+                const appointment = await API.Appointments.create(appointmentData);
+                
+                // Add additional services if any
+                const additionalServices = [];
+                if (document.getElementById('svcDressing').checked) {
+                    additionalServices.push({ service_type: 'Dressing', service_description: 'Wound dressing and bandaging', amount: 25 });
                 }
+                if (document.getElementById('svcScanning').checked) {
+                    additionalServices.push({ service_type: 'Scanning', service_description: 'CT scan, MRI, X-Ray services', amount: 150 });
+                }
+                if (document.getElementById('svcBlood').checked) {
+                    additionalServices.push({ service_type: 'Blood Testing', service_description: 'Laboratory blood test', amount: 75 });
+                }
+                if (document.getElementById('svcECG').checked) {
+                    additionalServices.push({ service_type: 'ECG', service_description: 'Electrocardiogram services', amount: 100 });
+                }
+                if (document.getElementById('svcOther').checked) {
+                    const otherAmt = parseFloat(document.getElementById('otherServiceAmount').value) || 0;
+                    if (otherAmt > 0) {
+                        additionalServices.push({ service_type: 'Other', service_description: 'Other medical services', amount: otherAmt });
+                    }
+                }
+
+                // Add additional expenses
+                for (const service of additionalServices) {
+                    await API.Expenses.add({
+                        appointment_id: appointment.appointment_id,
+                        ...service
+                    });
+                }
+
+                showToast('Appointment created successfully!', 'success');
+                
+                // Show bill
+                const fullAppointment = await API.Appointments.getById(appointment.appointment_id);
+                showBill(fullAppointment);
+
+                // Reset form
+                document.getElementById('appointmentPatient').value = '';
+                document.getElementById('appointmentDoctor').value = '';
+                await fillPatientDetails();
+                await fillDoctorDetails();
+                document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                document.getElementById('otherServiceGroup').style.display = 'none';
+                document.getElementById('hospitalCharges').value = '50';
+
+            } catch (error) {
+                console.error('Error creating appointment:', error);
+                showToast(error.message || 'Failed to create appointment', 'error');
             }
-
-            const total = doctor.fee + hospitalCharges + additionalTotal;
-            const now = new Date();
-
-            const appointment = {
-                patientId, doctorId,
-                patientName: patient.name,
-                patientAge: patient.age,
-                patientNIC: patient.nic,
-                patientPhone: patient.phone,
-                doctorName: doctor.name,
-                doctorSpecialization: doctor.specialization,
-                doctorFee: doctor.fee,
-                hospitalCharges,
-                additionalServices,
-                additionalTotal,
-                total,
-                date: now.toISOString().split('T')[0],
-                time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-            };
-
-            const savedAppt = HMS.appointments.add(appointment);
-            showBill(savedAppt);
-
-            // Reset form
-            document.getElementById('appointmentPatient').value = '';
-            document.getElementById('appointmentDoctor').value = '';
-            fillPatientDetails();
-            fillDoctorDetails();
-            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-            document.getElementById('otherServiceGroup').style.display = 'none';
         }
 
         // Show bill
@@ -253,37 +284,131 @@
             document.getElementById('billModal').classList.add('active');
         }
 
+        // Generate bill HTML
+        function generateBillHTML(appt) {
+            const billDate = new Date().toLocaleDateString();
+            const billTime = new Date().toLocaleTimeString();
+            
+            return `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h3>🏥 Hospital Management System</h3>
+                    <p><strong>Invoice / Bill</strong></p>
+                    <p>Date: ${billDate} | Time: ${billTime}</p>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <strong>Token Number:</strong> ${appt.token_number}<br>
+                    <strong>Patient:</strong> ${appt.patient ? appt.patient.patient_name : 'N/A'}<br>
+                    <strong>Age:</strong> ${appt.patient ? appt.patient.age : 'N/A'}<br>
+                    <strong>NIC:</strong> ${appt.patient ? appt.patient.nic : 'N/A'}<br>
+                    <strong>Phone:</strong> ${appt.patient ? appt.patient.phone_number : 'N/A'}
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <strong>Doctor:</strong> ${appt.doctor ? appt.doctor.doctor_name : 'N/A'}<br>
+                    <strong>Specialization:</strong> ${appt.doctor ? appt.doctor.specialization : 'N/A'}
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                    <thead>
+                        <tr style="background: #f5f5f5;">
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Service</th>
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Doctor Consultation</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${parseFloat(appt.doctor_charges).toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">Hospital Charges</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${parseFloat(appt.hospital_charges).toFixed(2)}</td>
+                        </tr>
+                        ${appt.additional_expenses ? appt.additional_expenses.map(exp => `
+                            <tr>
+                                <td style="border: 1px solid #ddd; padding: 8px;">${exp.service_description}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${parseFloat(exp.amount).toFixed(2)}</td>
+                            </tr>
+                        `).join('') : ''}
+                        <tr style="background: #f0f0f0; font-weight: bold;">
+                            <td style="border: 1px solid #ddd; padding: 8px;">Total Amount</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${appt.bill ? parseFloat(appt.bill.total_amount).toFixed(2) : (parseFloat(appt.doctor_charges) + parseFloat(appt.hospital_charges)).toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #666;">
+                    Thank you for choosing our hospital!
+                </div>
+            `;
+        }
+
         // Close bill modal
         function closeBillModal() {
             document.getElementById('billModal').classList.remove('active');
         }
 
+        // View appointment bill
+        async function viewAppointmentBill(appointmentId) {
+            try {
+                const appointment = await API.Appointments.getById(appointmentId);
+                showBill(appointment);
+            } catch (error) {
+                console.error('Error loading appointment bill:', error);
+                showToast('Error loading bill', 'error');
+            }
+        }
+
+        // Update appointment status
+        async function updateAppointmentStatus(appointmentId, status) {
+            try {
+                await API.Appointments.updateStatus(appointmentId, status);
+                showToast(`Appointment ${status.toLowerCase()} successfully!`, 'success');
+                await renderAppointments();
+            } catch (error) {
+                console.error('Error updating appointment status:', error);
+                showToast('Error updating appointment status', 'error');
+            }
+        }
+
         // Render appointments
-        function renderAppointments() {
-            const today = HMS.appointments.getToday();
-            const all = HMS.appointments.getAll();
+        async function renderAppointments() {
+            try {
+                const today = await API.Appointments.getToday();
+                const all = await API.Appointments.getAll();
 
-            document.getElementById('todayAppointmentsTable').innerHTML = today.map(a => `
-                <tr>
-                    <td><strong>${a.token}</strong></td>
-                    <td>${a.patientName}</td>
-                    <td>${a.doctorName}</td>
-                    <td>${a.time}</td>
-                    <td>$${a.total}</td>
-                    <td><button class="btn btn-sm btn-primary" onclick='showBill(${JSON.stringify(a)})'>View Bill</button></td>
-                </tr>
-            `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments today</td></tr>';
+                document.getElementById('todayAppointmentsTable').innerHTML = today.map(a => `
+                    <tr>
+                        <td><strong>${a.token_number}</strong></td>
+                        <td>${a.patient_name || 'N/A'}</td>
+                        <td>${a.doctor_name || 'N/A'}</td>
+                        <td>${new Date(a.created_at).toLocaleTimeString()}</td>
+                        <td>$${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
+                            <button class="btn btn-sm btn-secondary" onclick="updateAppointmentStatus(${a.appointment_id}, 'Completed')">Complete</button>
+                        </td>
+                    </tr>
+                `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments today</td></tr>';
 
-            document.getElementById('allAppointmentsTable').innerHTML = all.slice().reverse().map(a => `
-                <tr>
-                    <td><strong>${a.token}</strong></td>
-                    <td>${a.patientName}</td>
-                    <td>${a.doctorName}</td>
-                    <td>${a.date}</td>
-                    <td>$${a.total}</td>
-                    <td><button class="btn btn-sm btn-primary" onclick='showBill(${JSON.stringify(a)})'>View Bill</button></td>
-                </tr>
-            `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments found</td></tr>';
+                document.getElementById('allAppointmentsTable').innerHTML = all.slice().reverse().map(a => `
+                    <tr>
+                        <td><strong>${a.token_number}</strong></td>
+                        <td>${a.patient_name || 'N/A'}</td>
+                        <td>${a.doctor_name || 'N/A'}</td>
+                        <td>${formatDate(a.appointment_date)}</td>
+                        <td>$${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
+                            <span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span>
+                        </td>
+                    </tr>
+                `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments found</td></tr>';
+            } catch (error) {
+                console.error('Error loading appointments:', error);
+                showToast('Error loading appointments', 'error');
+            }
         }
 
         // Initialize
