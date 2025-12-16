@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics - HMS</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="topbar" id="topbar"></div>
+
+    <div class="main-content">
+        <!-- Tab Buttons -->
+        <div class="tab-buttons no-print">
+            <button class="tab-btn active" onclick="showReportTab('doctor')">Doctor Report</button>
+            <button class="tab-btn" onclick="showReportTab('hospital')">Hospital Report</button>
+        </div>
+
+        <!-- Doctor Report Tab -->
+        <div id="doctorReportTab">
+            <div class="card no-print">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Select Doctor</label>
+                        <select id="reportDoctor">
+                            <option value="">-- All Doctors --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="reportDate">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-primary" onclick="generateDoctorReport()">Generate Report</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card" id="doctorReportContent" style="display: none;"></div>
+        </div>
+
+        <!-- Hospital Report Tab -->
+        <div id="hospitalReportTab" style="display: none;">
+            <div class="card no-print">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" id="hospitalReportDate">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-primary" onclick="generateHospitalReport()">Generate Report</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card" id="hospitalReportContent" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/common.js"></script>
+    <script>
+        // Tab switching
+        function showReportTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach((b, i) => {
+                b.classList.toggle('active', 
+                    (tab === 'doctor' && i === 0) || 
+                    (tab === 'hospital' && i === 1)
+                );
+            });
+            document.getElementById('doctorReportTab').style.display = tab === 'doctor' ? 'block' : 'none';
+            document.getElementById('hospitalReportTab').style.display = tab === 'hospital' ? 'block' : 'none';
+        }
+
+        // Populate doctor dropdown
+        function populateReportDropdowns() {
+            const doctors = HMS.doctors.getAll();
+            document.getElementById('reportDoctor').innerHTML = 
+                '<option value="">-- All Doctors --</option>' +
+                doctors.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        }
+
+        // Generate Doctor Report
+        function generateDoctorReport() {
+            const doctorId = document.getElementById('reportDoctor').value;
+            const date = document.getElementById('reportDate').value;
+
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+
+            let filtered = HMS.appointments.getByDate(date);
+            if (doctorId) {
+                filtered = filtered.filter(a => a.doctorId === doctorId);
+            }
+
+            const totalConsultation = filtered.reduce((sum, a) => sum + a.doctorFee, 0);
+            const patientList = filtered.map(a => a.patientName).join(', ') || 'None';
+            const doctor = doctorId ? HMS.doctors.getById(doctorId) : null;
+
+            document.getElementById('doctorReportContent').style.display = 'block';
+            document.getElementById('doctorReportContent').innerHTML = `
+                <div class="card-title">📊 Doctor Report - ${date}</div>
+                ${doctor ? `<p><strong>Doctor:</strong> ${doctor.name} (${doctor.specialization})</p>` : '<p><strong>All Doctors</strong></p>'}
+                <div style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                    <div class="bill-row"><span>Total Appointments</span><span><strong>${filtered.length}</strong></span></div>
+                    <div class="bill-row"><span>Patients Attended</span><span>${patientList}</span></div>
+                    <div class="bill-row"><span>Total Consultation Fees</span><span><strong>$${totalConsultation}</strong></span></div>
+                    <div class="bill-row"><span>Report Generated</span><span>${new Date().toLocaleString()}</span></div>
+                </div>
+                <button class="btn btn-primary no-print" onclick="window.print()">🖨️ Print Report</button>
+            `;
+        }
+
+        // Generate Hospital Report
+        function generateHospitalReport() {
+            const date = document.getElementById('hospitalReportDate').value;
+
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+
+            const filtered = HMS.appointments.getByDate(date);
+
+            const totalDoctorFees = filtered.reduce((sum, a) => sum + a.doctorFee, 0);
+            const totalHospitalCharges = filtered.reduce((sum, a) => sum + a.hospitalCharges, 0);
+            const totalAdditional = filtered.reduce((sum, a) => sum + a.additionalTotal, 0);
+            const grandTotal = filtered.reduce((sum, a) => sum + a.total, 0);
+
+            // Doctor-wise summary
+            const doctorSummary = {};
+            filtered.forEach(a => {
+                doctorSummary[a.doctorName] = (doctorSummary[a.doctorName] || 0) + 1;
+            });
+
+            document.getElementById('hospitalReportContent').style.display = 'block';
+            document.getElementById('hospitalReportContent').innerHTML = `
+                <div class="card-title">🏥 Daily Hospital Report - ${date}</div>
+                <div style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                    <div class="bill-row"><span>Total Patients</span><span><strong>${filtered.length}</strong></span></div>
+                    <div class="bill-row"><span>Total Doctor Fees</span><span>$${totalDoctorFees}</span></div>
+                    <div class="bill-row"><span>Total Hospital Charges</span><span>$${totalHospitalCharges}</span></div>
+                    <div class="bill-row"><span>Total Additional Services</span><span>$${totalAdditional}</span></div>
+                    <div class="bill-row bill-total"><span>GRAND TOTAL REVENUE</span><span>$${grandTotal}</span></div>
+                </div>
+                <h4>Doctor-wise Summary</h4>
+                <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    ${Object.entries(doctorSummary).map(([name, count]) => 
+                        `<div class="bill-row"><span>${name}</span><span>${count} appointments</span></div>`
+                    ).join('') || '<p>No data for this date</p>'}
+                </div>
+                <p style="color:#64748b; font-size: 13px;">Report Generated: ${new Date().toLocaleString()}</p>
+                <button class="btn btn-primary no-print" onclick="window.print()">🖨️ Print Report</button>
+            `;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            populateReportDropdowns();
+            
+            // Set default dates to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('reportDate').value = today;
+            document.getElementById('hospitalReportDate').value = today;
+        });
+    </script>
+</body>
+</html>

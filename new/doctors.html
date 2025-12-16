@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Management - HMS</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="topbar" id="topbar"></div>
+
+    <div class="main-content">
+        <!-- Search & Add -->
+        <div class="card no-print">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div class="search-box" style="flex: 1; min-width: 250px; margin: 0;">
+                    <input type="text" id="doctorSearch" placeholder="Search by name or specialization..." onkeyup="searchDoctors()">
+                </div>
+                <button class="btn btn-primary" onclick="openDoctorModal()">+ Add New Doctor</button>
+            </div>
+        </div>
+
+        <!-- Doctors Table -->
+        <div class="card">
+            <div class="card-title">👨‍⚕️ Doctor Profiles</div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Doctor ID</th>
+                            <th>Name</th>
+                            <th>Specialization</th>
+                            <th>Consultation Fee</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="doctorsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doctor Modal -->
+    <div class="modal" id="doctorModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="doctorModalTitle">Add New Doctor</h2>
+                <button class="modal-close" onclick="closeDoctorModal()">×</button>
+            </div>
+            <form id="doctorForm" onsubmit="saveDoctor(event)">
+                <input type="hidden" id="doctorEditId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Doctor ID *</label>
+                        <input type="text" id="doctorId" required placeholder="e.g., DR001">
+                    </div>
+                    <div class="form-group">
+                        <label>Doctor Name *</label>
+                        <input type="text" id="doctorName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Specialization *</label>
+                        <input type="text" id="doctorSpecialization" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Consultation Fee ($) *</label>
+                        <input type="number" id="doctorFee" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="doctorStatus">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-success">Save Doctor</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeDoctorModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/common.js"></script>
+    <script>
+        // Render doctors table
+        function renderDoctors(list = null) {
+            const doctors = list || HMS.doctors.getAll();
+            document.getElementById('doctorsTable').innerHTML = doctors.map(d => `
+                <tr>
+                    <td>${d.id}</td>
+                    <td>${d.name}</td>
+                    <td>${d.specialization}</td>
+                    <td>$${d.fee}</td>
+                    <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openDoctorModal('${d.id}')">Edit</button>
+                        <button class="btn btn-sm btn-secondary" onclick="toggleDoctorStatus('${d.id}')">${d.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="6" style="text-align:center;">No doctors found</td></tr>';
+        }
+
+        // Search doctors
+        function searchDoctors() {
+            const query = document.getElementById('doctorSearch').value.toLowerCase();
+            const doctors = HMS.doctors.getAll();
+            const filtered = doctors.filter(d => 
+                d.name.toLowerCase().includes(query) || 
+                d.specialization.toLowerCase().includes(query)
+            );
+            renderDoctors(filtered);
+        }
+
+        // Open modal
+        function openDoctorModal(id = null) {
+            document.getElementById('doctorModal').classList.add('active');
+            document.getElementById('doctorForm').reset();
+            document.getElementById('doctorEditId').value = '';
+            document.getElementById('doctorModalTitle').textContent = 'Add New Doctor';
+            document.getElementById('doctorId').readOnly = false;
+
+            if (id) {
+                const d = HMS.doctors.getById(id);
+                if (d) {
+                    document.getElementById('doctorModalTitle').textContent = 'Edit Doctor';
+                    document.getElementById('doctorEditId').value = d.id;
+                    document.getElementById('doctorId').value = d.id;
+                    document.getElementById('doctorId').readOnly = true;
+                    document.getElementById('doctorName').value = d.name;
+                    document.getElementById('doctorSpecialization').value = d.specialization;
+                    document.getElementById('doctorFee').value = d.fee;
+                    document.getElementById('doctorStatus').value = d.status;
+                }
+            }
+        }
+
+        // Close modal
+        function closeDoctorModal() {
+            document.getElementById('doctorModal').classList.remove('active');
+        }
+
+        // Save doctor
+        function saveDoctor(e) {
+            e.preventDefault();
+            const editId = document.getElementById('doctorEditId').value;
+            const docId = document.getElementById('doctorId').value;
+
+            // Check for duplicate ID (only for new doctors)
+            if (!editId && HMS.doctors.exists(docId)) {
+                alert('A doctor with this ID already exists!');
+                return;
+            }
+
+            const data = {
+                id: docId,
+                name: document.getElementById('doctorName').value,
+                specialization: document.getElementById('doctorSpecialization').value,
+                fee: parseFloat(document.getElementById('doctorFee').value),
+                status: document.getElementById('doctorStatus').value
+            };
+
+            if (editId) {
+                HMS.doctors.update(editId, data);
+            } else {
+                HMS.doctors.add(data);
+            }
+
+            closeDoctorModal();
+            renderDoctors();
+        }
+
+        // Toggle doctor status
+        function toggleDoctorStatus(id) {
+            HMS.doctors.toggleStatus(id);
+            renderDoctors();
+        }
+
+        // Check for action parameter
+        function checkUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('action') === 'add') {
+                openDoctorModal();
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderDoctors();
+            checkUrlParams();
+        });
+    </script>
+</body>
+</html>

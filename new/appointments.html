@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointments & Billing - HMS</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="topbar" id="topbar"></div>
+
+    <div class="main-content">
+        <!-- Tab Buttons -->
+        <div class="tab-buttons no-print">
+            <button class="tab-btn active" onclick="showTab('new')">New Appointment</button>
+            <button class="tab-btn" onclick="showTab('list')">Today's Appointments</button>
+            <button class="tab-btn" onclick="showTab('all')">All Appointments</button>
+        </div>
+
+        <!-- New Appointment Tab -->
+        <div id="newTab">
+            <div class="card">
+                <div class="card-title">📅 Create New Appointment</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Select Patient *</label>
+                        <select id="appointmentPatient" onchange="fillPatientDetails()">
+                            <option value="">-- Select Patient --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Patient Name</label>
+                        <input type="text" id="appointmentPatientName" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Age</label>
+                        <input type="text" id="appointmentPatientAge" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Doctor *</label>
+                        <select id="appointmentDoctor" onchange="fillDoctorDetails()">
+                            <option value="">-- Select Doctor --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Specialization</label>
+                        <input type="text" id="appointmentSpecialization" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Consultation Fee</label>
+                        <input type="text" id="appointmentDoctorFee" readonly>
+                    </div>
+                </div>
+
+                <div class="card-title" style="margin-top: 20px;">💰 Charges</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Hospital Charges ($)</label>
+                        <input type="number" id="hospitalCharges" value="50" min="0">
+                    </div>
+                </div>
+
+                <div class="card-title" style="margin-top: 20px;">🩺 Additional Services</div>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" id="svcDressing" value="25"> Dressing ($25)</label>
+                    <label class="checkbox-item"><input type="checkbox" id="svcScanning" value="150"> Scanning ($150)</label>
+                    <label class="checkbox-item"><input type="checkbox" id="svcBlood" value="75"> Blood Testing ($75)</label>
+                    <label class="checkbox-item"><input type="checkbox" id="svcECG" value="100"> ECG ($100)</label>
+                    <label class="checkbox-item"><input type="checkbox" id="svcOther" value="0"> Other</label>
+                </div>
+                <div class="form-group" id="otherServiceGroup" style="display: none; margin-top: 15px;">
+                    <label>Other Service Amount ($)</label>
+                    <input type="number" id="otherServiceAmount" value="0" min="0">
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="createAppointment()">Generate Bill & Token</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Appointments Tab -->
+        <div id="listTab" style="display: none;">
+            <div class="card">
+                <div class="card-title">📋 Today's Appointments</div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr><th>Token</th><th>Patient</th><th>Doctor</th><th>Time</th><th>Total</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="todayAppointmentsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Appointments Tab -->
+        <div id="allTab" style="display: none;">
+            <div class="card">
+                <div class="card-title">📋 All Appointments</div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr><th>Token</th><th>Patient</th><th>Doctor</th><th>Date</th><th>Total</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="allAppointmentsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill Modal -->
+    <div class="modal" id="billModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header no-print">
+                <h2>Invoice / Bill</h2>
+                <button class="modal-close" onclick="closeBillModal()">×</button>
+            </div>
+            <div id="billContent"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;" class="no-print">
+                <button class="btn btn-primary" onclick="window.print()">🖨️ Print Bill</button>
+                <button class="btn btn-secondary" onclick="closeBillModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/common.js"></script>
+    <script>
+        // Tab switching
+        function showTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach((b, i) => {
+                b.classList.toggle('active', 
+                    (tab === 'new' && i === 0) || 
+                    (tab === 'list' && i === 1) || 
+                    (tab === 'all' && i === 2)
+                );
+            });
+            document.getElementById('newTab').style.display = tab === 'new' ? 'block' : 'none';
+            document.getElementById('listTab').style.display = tab === 'list' ? 'block' : 'none';
+            document.getElementById('allTab').style.display = tab === 'all' ? 'block' : 'none';
+            
+            if (tab === 'list' || tab === 'all') renderAppointments();
+        }
+
+        // Populate dropdowns
+        function populateDropdowns() {
+            const patients = HMS.patients.getAll();
+            const doctors = HMS.doctors.getActive();
+
+            document.getElementById('appointmentPatient').innerHTML = 
+                '<option value="">-- Select Patient --</option>' +
+                patients.map(p => `<option value="${p.id}">${p.name} (${p.nic})</option>`).join('');
+
+            document.getElementById('appointmentDoctor').innerHTML = 
+                '<option value="">-- Select Doctor --</option>' +
+                doctors.map(d => `<option value="${d.id}">${d.name} - ${d.specialization}</option>`).join('');
+        }
+
+        // Fill patient details
+        function fillPatientDetails() {
+            const p = HMS.patients.getById(document.getElementById('appointmentPatient').value);
+            document.getElementById('appointmentPatientName').value = p ? p.name : '';
+            document.getElementById('appointmentPatientAge').value = p ? p.age : '';
+        }
+
+        // Fill doctor details
+        function fillDoctorDetails() {
+            const d = HMS.doctors.getById(document.getElementById('appointmentDoctor').value);
+            document.getElementById('appointmentSpecialization').value = d ? d.specialization : '';
+            document.getElementById('appointmentDoctorFee').value = d ? '$' + d.fee : '';
+        }
+
+        // Create appointment
+        function createAppointment() {
+            const patientId = document.getElementById('appointmentPatient').value;
+            const doctorId = document.getElementById('appointmentDoctor').value;
+
+            if (!patientId || !doctorId) {
+                alert('Please select both patient and doctor');
+                return;
+            }
+
+            const patient = HMS.patients.getById(patientId);
+            const doctor = HMS.doctors.getById(doctorId);
+            const hospitalCharges = parseFloat(document.getElementById('hospitalCharges').value) || 0;
+
+            // Gather additional services
+            let additionalServices = [];
+            let additionalTotal = 0;
+
+            if (document.getElementById('svcDressing').checked) {
+                additionalServices.push({ name: 'Dressing', amount: 25 });
+                additionalTotal += 25;
+            }
+            if (document.getElementById('svcScanning').checked) {
+                additionalServices.push({ name: 'Scanning', amount: 150 });
+                additionalTotal += 150;
+            }
+            if (document.getElementById('svcBlood').checked) {
+                additionalServices.push({ name: 'Blood Testing', amount: 75 });
+                additionalTotal += 75;
+            }
+            if (document.getElementById('svcECG').checked) {
+                additionalServices.push({ name: 'ECG', amount: 100 });
+                additionalTotal += 100;
+            }
+            if (document.getElementById('svcOther').checked) {
+                const otherAmt = parseFloat(document.getElementById('otherServiceAmount').value) || 0;
+                if (otherAmt > 0) {
+                    additionalServices.push({ name: 'Other Services', amount: otherAmt });
+                    additionalTotal += otherAmt;
+                }
+            }
+
+            const total = doctor.fee + hospitalCharges + additionalTotal;
+            const now = new Date();
+
+            const appointment = {
+                patientId, doctorId,
+                patientName: patient.name,
+                patientAge: patient.age,
+                patientNIC: patient.nic,
+                patientPhone: patient.phone,
+                doctorName: doctor.name,
+                doctorSpecialization: doctor.specialization,
+                doctorFee: doctor.fee,
+                hospitalCharges,
+                additionalServices,
+                additionalTotal,
+                total,
+                date: now.toISOString().split('T')[0],
+                time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            const savedAppt = HMS.appointments.add(appointment);
+            showBill(savedAppt);
+
+            // Reset form
+            document.getElementById('appointmentPatient').value = '';
+            document.getElementById('appointmentDoctor').value = '';
+            fillPatientDetails();
+            fillDoctorDetails();
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.getElementById('otherServiceGroup').style.display = 'none';
+        }
+
+        // Show bill
+        function showBill(appt) {
+            document.getElementById('billContent').innerHTML = generateBillHTML(appt);
+            document.getElementById('billModal').classList.add('active');
+        }
+
+        // Close bill modal
+        function closeBillModal() {
+            document.getElementById('billModal').classList.remove('active');
+        }
+
+        // Render appointments
+        function renderAppointments() {
+            const today = HMS.appointments.getToday();
+            const all = HMS.appointments.getAll();
+
+            document.getElementById('todayAppointmentsTable').innerHTML = today.map(a => `
+                <tr>
+                    <td><strong>${a.token}</strong></td>
+                    <td>${a.patientName}</td>
+                    <td>${a.doctorName}</td>
+                    <td>${a.time}</td>
+                    <td>$${a.total}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick='showBill(${JSON.stringify(a)})'>View Bill</button></td>
+                </tr>
+            `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments today</td></tr>';
+
+            document.getElementById('allAppointmentsTable').innerHTML = all.slice().reverse().map(a => `
+                <tr>
+                    <td><strong>${a.token}</strong></td>
+                    <td>${a.patientName}</td>
+                    <td>${a.doctorName}</td>
+                    <td>${a.date}</td>
+                    <td>$${a.total}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick='showBill(${JSON.stringify(a)})'>View Bill</button></td>
+                </tr>
+            `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments found</td></tr>';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            populateDropdowns();
+            renderAppointments();
+
+            // Toggle other service input
+            document.getElementById('svcOther').addEventListener('change', function() {
+                document.getElementById('otherServiceGroup').style.display = this.checked ? 'block' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Management - HMS</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="topbar" id="topbar"></div>
+
+    <div class="main-content">
+        <!-- Search & Add -->
+        <div class="card no-print">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div class="search-box" style="flex: 1; min-width: 250px; margin: 0;">
+                    <input type="text" id="patientSearch" placeholder="Search by name, NIC, or phone..." onkeyup="searchPatients()">
+                </div>
+                <button class="btn btn-primary" onclick="openPatientModal()">+ Add New Patient</button>
+            </div>
+        </div>
+
+        <!-- Patients Table -->
+        <div class="card">
+            <div class="card-title">👥 Patient Records</div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Patient ID</th>
+                            <th>Name</th>
+                            <th>Age</th>
+                            <th>Gender</th>
+                            <th>Phone</th>
+                            <th>NIC</th>
+                            <th>Reg. Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="patientsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient Modal -->
+    <div class="modal" id="patientModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="patientModalTitle">Add New Patient</h2>
+                <button class="modal-close" onclick="closePatientModal()">×</button>
+            </div>
+            <form id="patientForm" onsubmit="savePatient(event)">
+                <input type="hidden" id="patientEditId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Patient Name *</label>
+                        <input type="text" id="patientName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Age *</label>
+                        <input type="number" id="patientAge" min="0" max="150" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Gender *</label>
+                        <select id="patientGender" required>
+                            <option value="">-- Select --</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="patientPhone" pattern="[0-9]{10,15}" title="10-15 digits" required>
+                    </div>
+                    <div class="form-group">
+                        <label>NIC Number *</label>
+                        <input type="text" id="patientNIC" required>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-success">Save Patient</button>
+                    <button type="button" class="btn btn-secondary" onclick="closePatientModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/common.js"></script>
+    <script>
+        // Render patients table
+        function renderPatients(list = null) {
+            const patients = list || HMS.patients.getAll();
+            document.getElementById('patientsTable').innerHTML = patients.map(p => `
+                <tr>
+                    <td>${p.id}</td>
+                    <td>${p.name}</td>
+                    <td>${p.age}</td>
+                    <td>${p.gender}</td>
+                    <td>${p.phone}</td>
+                    <td>${p.nic}</td>
+                    <td>${p.regDate}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openPatientModal('${p.id}')">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deletePatient('${p.id}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="8" style="text-align:center;">No patients found</td></tr>';
+        }
+
+        // Search patients
+        function searchPatients() {
+            const query = document.getElementById('patientSearch').value.toLowerCase();
+            const patients = HMS.patients.getAll();
+            const filtered = patients.filter(p => 
+                p.name.toLowerCase().includes(query) || 
+                p.nic.toLowerCase().includes(query) || 
+                p.phone.includes(query)
+            );
+            renderPatients(filtered);
+        }
+
+        // Open modal
+        function openPatientModal(id = null) {
+            document.getElementById('patientModal').classList.add('active');
+            document.getElementById('patientForm').reset();
+            document.getElementById('patientEditId').value = '';
+            document.getElementById('patientModalTitle').textContent = 'Add New Patient';
+
+            if (id) {
+                const p = HMS.patients.getById(id);
+                if (p) {
+                    document.getElementById('patientModalTitle').textContent = 'Edit Patient';
+                    document.getElementById('patientEditId').value = p.id;
+                    document.getElementById('patientName').value = p.name;
+                    document.getElementById('patientAge').value = p.age;
+                    document.getElementById('patientGender').value = p.gender;
+                    document.getElementById('patientPhone').value = p.phone;
+                    document.getElementById('patientNIC').value = p.nic;
+                }
+            }
+        }
+
+        // Close modal
+        function closePatientModal() {
+            document.getElementById('patientModal').classList.remove('active');
+        }
+
+        // Save patient
+        function savePatient(e) {
+            e.preventDefault();
+            const editId = document.getElementById('patientEditId').value;
+            const nic = document.getElementById('patientNIC').value;
+
+            // Check for duplicate NIC
+            if (HMS.patients.exists(nic, editId)) {
+                alert('A patient with this NIC already exists!');
+                return;
+            }
+
+            const data = {
+                name: document.getElementById('patientName').value,
+                age: parseInt(document.getElementById('patientAge').value),
+                gender: document.getElementById('patientGender').value,
+                phone: document.getElementById('patientPhone').value,
+                nic: nic
+            };
+
+            if (editId) {
+                HMS.patients.update(editId, data);
+            } else {
+                HMS.patients.add(data);
+            }
+
+            closePatientModal();
+            renderPatients();
+        }
+
+        // Delete patient
+        function deletePatient(id) {
+            if (confirm('Are you sure you want to delete this patient?')) {
+                HMS.patients.delete(id);
+                renderPatients();
+            }
+        }
+
+        // Check for action parameter (from dashboard quick action)
+        function checkUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('action') === 'add') {
+                openPatientModal();
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderPatients();
+            checkUrlParams();
+        });
+    </script>
+</body>
+</html>
