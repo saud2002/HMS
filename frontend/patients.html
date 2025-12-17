@@ -177,14 +177,19 @@
                     // Update existing patient
                     await API.Patients.update(editId, data);
                     showToast('Patient updated successfully!', 'success');
+                    closePatientModal();
+                    await renderPatients(); // Reload from database
                 } else {
                     // Create new patient
-                    await API.Patients.create(data);
-                    showToast('Patient registered successfully!', 'success');
+                    const newPatient = await API.Patients.create(data);
+                    showToast('Patient registered successfully! Redirecting to appointments...', 'success');
+                    closePatientModal();
+                    
+                    // Redirect to appointments page after 1.5 seconds
+                    setTimeout(() => {
+                        window.location.href = `/appointments.html?new_patient=${newPatient.patient_id}`;
+                    }, 1500);
                 }
-
-                closePatientModal();
-                await renderPatients(); // Reload from database
             } catch (error) {
                 console.error('Error saving patient:', error);
                 showToast(error.message || 'Failed to save patient', 'error');

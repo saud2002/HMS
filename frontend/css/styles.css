@@ -37,11 +37,66 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .page-title { font-size: 24px; font-weight: 600; color: #1e40af; }
 .topbar-right { display: flex; align-items: center; gap: 20px; }
 .date-time { font-size: 14px; color: #64748b; }
-.user-profile { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: #f1f5f9; border-radius: 50px; cursor: pointer; }
+.user-profile { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: #f1f5f9; border-radius: 50px; cursor: pointer; position: relative; }
 .user-avatar { width: 38px; height: 38px; background: linear-gradient(135deg, #2563eb, #1e40af); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
 .user-info { display: flex; flex-direction: column; }
 .user-name { font-size: 14px; font-weight: 600; color: #334155; }
 .user-role { font-size: 12px; color: #64748b; }
+.user-menu { 
+    position: absolute; 
+    top: 100%; 
+    right: 0; 
+    background: white; 
+    border-radius: 8px; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); 
+    padding: 8px 0; 
+    min-width: 150px; 
+    display: none; 
+    z-index: 1000;
+    border: 1px solid #e2e8f0;
+}
+.user-menu a { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    padding: 10px 16px; 
+    color: #334155; 
+    text-decoration: none; 
+    font-size: 14px; 
+    transition: background 0.2s;
+}
+.user-menu a:hover { 
+    background: #f8fafc; 
+    color: #dc2626;
+}
+
+/* Logout Button */
+.logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: 15px;
+}
+
+.logout-btn:hover {
+    background: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.logout-btn svg {
+    width: 16px;
+    height: 16px;
+}
 
 /* Main Content */
 .main-content { margin-left: 260px; margin-top: 70px; padding: 30px; transition: margin-left 0.3s; min-height: calc(100vh - 70px); }

@@ -1,5 +1,6 @@
 # ============== app/routers/__init__.py ==============
-from app.routers import patients, doctors, appointments, reports, auth
+# Routers are not used in the current monolithic setup
+# from app.routers import patients, doctors, appointments, reports, auth
 
 
 # ============== app/routers/patients.py ==============

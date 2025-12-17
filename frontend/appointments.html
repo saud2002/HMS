@@ -16,18 +16,31 @@
             <button class="tab-btn active" onclick="showTab('new')">New Appointment</button>
             <button class="tab-btn" onclick="showTab('list')">Today's Appointments</button>
             <button class="tab-btn" onclick="showTab('all')">All Appointments</button>
+             <button type="button" class="btn btn-secondary" onclick="openAddPatientModal()" title="Add New Patient">
+                                + New Patient
+                            </button>
         </div>
 
         <!-- New Appointment Tab -->
         <div id="newTab">
             <div class="card">
                 <div class="card-title">📅 Create New Appointment</div>
+                <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <small style="color: #1e40af;">
+                        💡 <strong>Tip:</strong> Need to register a new patient? Use the "+ New Patient" button  or visit the 
+                        <a href="/patients.html" style="color: #2563eb; text-decoration: underline;">Patients page</a> first.
+                    </small>
+                </div>
+               
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Select Patient *</label>
-                        <select id="appointmentPatient" onchange="fillPatientDetails()">
-                            <option value="">-- Select Patient --</option>
-                        </select>
+                        <div style="display: flex; gap: 10px; align-items: flex-end;">
+                            <select id="appointmentPatient" onchange="fillPatientDetails()" style="flex: 1;">
+                                <option value="">-- Select Patient --</option>
+                            </select>
+                            
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Patient Name</label>
@@ -108,6 +121,49 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Patient Modal -->
+    <div class="modal" id="patientModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Patient</h2>
+                <button class="modal-close" onclick="closePatientModal()">×</button>
+            </div>
+            <form id="patientForm" onsubmit="savePatientFromAppointment(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Patient Name *</label>
+                        <input type="text" id="patientName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Age *</label>
+                        <input type="number" id="patientAge" min="1" max="150" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="patientPhone" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Gender *</label>
+                        <select id="patientGender" required>
+                            <option value="">-- Select Gender --</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>NIC Number *</label>
+                        <input type="text" id="patientNIC" required>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-success">Save & Select Patient</button>
+                    <button type="button" class="btn btn-secondary" onclick="closePatientModal()">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -411,10 +467,66 @@
             }
         }
 
+        // Patient Modal Functions
+        function openAddPatientModal() {
+            document.getElementById('patientModal').classList.add('active');
+            document.getElementById('patientForm').reset();
+        }
+
+        function closePatientModal() {
+            document.getElementById('patientModal').classList.remove('active');
+        }
+
+        // Save patient from appointment page
+        async function savePatientFromAppointment(e) {
+            e.preventDefault();
+            
+            const data = {
+                patient_name: document.getElementById('patientName').value,
+                age: parseInt(document.getElementById('patientAge').value),
+                phone_number: document.getElementById('patientPhone').value,
+                gender: document.getElementById('patientGender').value,
+                nic: document.getElementById('patientNIC').value,
+                registration_date: new Date().toISOString().split('T')[0]
+            };
+
+            try {
+                const newPatient = await API.Patients.create(data);
+                showToast('Patient registered successfully!', 'success');
+                closePatientModal();
+                
+                // Refresh patient dropdown and auto-select the new patient
+                await populateDropdowns();
+                document.getElementById('appointmentPatient').value = newPatient.patient_id;
+                await fillPatientDetails();
+                
+            } catch (error) {
+                console.error('Error saving patient:', error);
+                showToast(error.message || 'Failed to save patient', 'error');
+            }
+        }
+
+        // Check URL parameters for new patient workflow
+        function checkUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const newPatientId = params.get('new_patient');
+            
+            if (newPatientId) {
+                // Auto-select the new patient after redirect from patient registration
+                setTimeout(async () => {
+                    await populateDropdowns();
+                    document.getElementById('appointmentPatient').value = newPatientId;
+                    await fillPatientDetails();
+                    showToast('Patient registered! Please select a doctor to continue.', 'info');
+                }, 500);
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             populateDropdowns();
             renderAppointments();
+            checkUrlParams();
 
             // Toggle other service input
             document.getElementById('svcOther').addEventListener('change', function() {

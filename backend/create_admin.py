@@ -6,7 +6,7 @@ import sys
 sys.path.append('app')
 
 from app.database import SessionLocal
-from app.models.user import AdminUser, UserStatus
+from app.models.user import AdminUser
 from passlib.context import CryptContext
 
 def create_admin():

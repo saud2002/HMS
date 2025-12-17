@@ -1,16 +1,11 @@
 """
 Admin User Model
 """
-from sqlalchemy import Column, Integer, String, DateTime, Enum
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
-import enum
 
 from ..database import Base
-
-class UserStatus(str, enum.Enum):
-    ACTIVE = "Active"
-    INACTIVE = "Inactive"
 
 class AdminUser(Base):
     __tablename__ = "admin_users"
@@ -22,7 +17,7 @@ class AdminUser(Base):
     email = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)
-    status = Column(Enum(UserStatus), default=UserStatus.ACTIVE, nullable=False)
+    status = Column(String(20), default="Active", nullable=False)
     
     # Relationships
     created_appointments = relationship("Appointment", foreign_keys="[Appointment.created_by]", back_populates="creator")

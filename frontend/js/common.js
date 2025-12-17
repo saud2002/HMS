@@ -176,5 +176,150 @@ function generateBillHTML(appt) {
     `;
 }
 
+// Authentication functions
+function checkAuthentication() {
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const session = localStorage.getItem('hms_session') || sessionStorage.getItem('hms_session');
+    
+    if (!token || !session) {
+        // Not authenticated, redirect to login
+        window.location.href = '/login.html';
+        return false;
+    }
+    
+    try {
+        const sessionData = JSON.parse(session);
+        // Check if token is expired (basic check)
+        if (sessionData.expiresIn) {
+            const loginTime = new Date(sessionData.loginTime);
+            const expiryTime = new Date(loginTime.getTime() + (sessionData.expiresIn * 1000));
+            if (new Date() > expiryTime) {
+                // Token expired
+                logout();
+                return false;
+            }
+        }
+        return true;
+    } catch (e) {
+        // Invalid session data
+        logout();
+        return false;
+    }
+}
+
+function logout() {
+    // Clear all session data
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('hms_session');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('hms_session');
+    
+    // Clear cookie
+    document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    
+    // Redirect to login
+    window.location.href = '/login.html';
+}
+
+function getUserInfo() {
+    const session = localStorage.getItem('hms_session') || sessionStorage.getItem('hms_session');
+    if (session) {
+        try {
+            return JSON.parse(session);
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+// Update topbar to show user info and logout
+function renderTopbar() {
+    const currentPage = getCurrentPage();
+    const topbar = document.getElementById('topbar');
+    if (!topbar) return;
+    
+    const userInfo = getUserInfo();
+    const userName = userInfo ? userInfo.username : 'Admin';
+    
+    topbar.innerHTML = `
+        <div class="topbar-left">
+            <button class="toggle-btn" id="toggleSidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+            <h1 class="page-title">${PAGE_TITLES[currentPage] || 'Dashboard'}</h1>
+        </div>
+        <div class="topbar-right">
+            <div class="date-time" id="dateTime"></div>
+            <button class="logout-btn" onclick="logout()" title="Logout">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16,17 21,12 16,7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Logout
+            </button>
+            <div class="user-profile" onclick="toggleUserMenu()">
+                <div class="user-avatar">${userName.charAt(0).toUpperCase()}</div>
+                <div class="user-info">
+                    <div class="user-name">${userName}</div>
+                    <div class="user-role">System Administrator</div>
+                </div>
+                <div class="user-menu" id="userMenu">
+                    <a href="#" onclick="logout()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16,17 21,12 16,7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Toggle sidebar
+    document.getElementById('toggleSidebar').addEventListener('click', function() {
+        document.getElementById('sidebar').classList.toggle('collapsed');
+    });
+    
+    // Update date/time
+    updateDateTime();
+    setInterval(updateDateTime, 60000);
+}
+
+function toggleUserMenu() {
+    const menu = document.getElementById('userMenu');
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+}
+
+// Close user menu when clicking outside
+document.addEventListener('click', function(event) {
+    const userProfile = document.querySelector('.user-profile');
+    const userMenu = document.getElementById('userMenu');
+    
+    if (userMenu && !userProfile.contains(event.target)) {
+        userMenu.style.display = 'none';
+    }
+});
+
+// Initialize common components with authentication check
+function initCommon() {
+    // Skip authentication check for login page
+    if (getCurrentPage() !== 'login.html') {
+        if (!checkAuthentication()) {
+            return; // Will redirect to login
+        }
+    }
+    
+    renderSidebar();
+    renderTopbar();
+}
+
 // Call initCommon when DOM is ready
 document.addEventListener('DOMContentLoaded', initCommon);
