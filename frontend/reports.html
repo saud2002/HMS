@@ -15,6 +15,7 @@
         <div class="tab-buttons no-print">
             <button class="tab-btn active" onclick="showReportTab('doctor')">Doctor Report</button>
             <button class="tab-btn" onclick="showReportTab('hospital')">Hospital Report</button>
+            <button class="tab-btn" onclick="showReportTab('summary')">Summary Report</button>
         </div>
 
         <!-- Doctor Report Tab -->
@@ -28,8 +29,12 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Date</label>
-                        <input type="date" id="reportDate">
+                        <label>Start Date</label>
+                        <input type="date" id="reportStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="reportEndDate">
                     </div>
                     <div class="form-group" style="display: flex; align-items: flex-end;">
                         <button class="btn btn-primary" onclick="generateDoctorReport()">Generate Report</button>
@@ -44,8 +49,12 @@
             <div class="card no-print">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Date</label>
-                        <input type="date" id="hospitalReportDate">
+                        <label>Start Date</label>
+                        <input type="date" id="hospitalStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="hospitalEndDate">
                     </div>
                     <div class="form-group" style="display: flex; align-items: flex-end;">
                         <button class="btn btn-primary" onclick="generateHospitalReport()">Generate Report</button>
@@ -54,105 +63,287 @@
             </div>
             <div class="card" id="hospitalReportContent" style="display: none;"></div>
         </div>
+
+        <!-- Summary Report Tab -->
+        <div id="summaryReportTab" style="display: none;">
+            <div class="card no-print">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Report Date</label>
+                        <input type="date" id="summaryDate">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button class="btn btn-primary" onclick="generateSummaryReport()">Generate Daily Summary</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card" id="summaryReportContent" style="display: none;"></div>
+        </div>
     </div>
 
     <script src="/static/js/data.js"></script>
     <script src="/static/js/common.js"></script>
+    <script src="/static/js/api.js"></script>
     <script>
         // Tab switching
         function showReportTab(tab) {
             document.querySelectorAll('.tab-btn').forEach((b, i) => {
                 b.classList.toggle('active', 
                     (tab === 'doctor' && i === 0) || 
-                    (tab === 'hospital' && i === 1)
+                    (tab === 'hospital' && i === 1) ||
+                    (tab === 'summary' && i === 2)
                 );
             });
             document.getElementById('doctorReportTab').style.display = tab === 'doctor' ? 'block' : 'none';
             document.getElementById('hospitalReportTab').style.display = tab === 'hospital' ? 'block' : 'none';
+            document.getElementById('summaryReportTab').style.display = tab === 'summary' ? 'block' : 'none';
         }
 
         // Populate doctor dropdown
-        function populateReportDropdowns() {
-            const doctors = HMS.doctors.getAll();
-            document.getElementById('reportDoctor').innerHTML = 
-                '<option value="">-- All Doctors --</option>' +
-                doctors.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        async function populateReportDropdowns() {
+            try {
+                const doctors = await API.Doctors.getAll('Active');
+                document.getElementById('reportDoctor').innerHTML = 
+                    '<option value="">-- All Doctors --</option>' +
+                    doctors.map(d => `<option value="${d.doctor_id}">${d.doctor_name}</option>`).join('');
+            } catch (error) {
+                console.error('Error loading doctors:', error);
+                showToast('Error loading doctors', 'error');
+            }
         }
 
         // Generate Doctor Report
-        function generateDoctorReport() {
+        async function generateDoctorReport() {
             const doctorId = document.getElementById('reportDoctor').value;
-            const date = document.getElementById('reportDate').value;
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
 
-            if (!date) {
-                alert('Please select a date');
+            if (!startDate || !endDate) {
+                showToast('Please select both start and end dates', 'error');
                 return;
             }
 
-            let filtered = HMS.appointments.getByDate(date);
-            if (doctorId) {
-                filtered = filtered.filter(a => a.doctorId === doctorId);
+            try {
+                // Get doctor-wise report data
+                const doctorReport = await API.Reports.getDoctorWise(startDate, endDate);
+                
+                // Get appointments for the date range
+                const appointments = await API.Appointments.getAll({
+                    date_from: startDate,
+                    date_to: endDate,
+                    doctor_id: doctorId || undefined
+                });
+
+                // Find specific doctor data if selected
+                let doctorData = null;
+                let doctorInfo = null;
+                
+                if (doctorId) {
+                    doctorData = doctorReport.find(d => d.doctor_id === doctorId);
+                    if (!doctorData) {
+                        doctorData = {
+                            doctor_id: doctorId,
+                            doctor_name: 'Unknown',
+                            specialization: 'Unknown',
+                            total_appointments: 0,
+                            total_doctor_fees: 0
+                        };
+                    }
+                    // Get doctor info
+                    try {
+                        doctorInfo = await API.Doctors.getById(doctorId);
+                    } catch (e) {
+                        console.warn('Could not fetch doctor info:', e);
+                    }
+                } else {
+                    // Aggregate all doctors
+                    doctorData = {
+                        doctor_name: 'All Doctors',
+                        specialization: 'All Specializations',
+                        total_appointments: doctorReport.reduce((sum, d) => sum + d.total_appointments, 0),
+                        total_doctor_fees: doctorReport.reduce((sum, d) => sum + d.total_doctor_fees, 0)
+                    };
+                }
+
+                // Get patient list
+                const patientList = appointments.map(a => a.patient_name).filter(name => name).join(', ') || 'None';
+
+                const dateRange = startDate === endDate ? formatDate(startDate) : `${formatDate(startDate)} to ${formatDate(endDate)}`;
+
+                document.getElementById('doctorReportContent').style.display = 'block';
+                document.getElementById('doctorReportContent').innerHTML = `
+                    <div class="card-title">📊 Doctor Report - ${dateRange}</div>
+                    <p><strong>Doctor:</strong> ${doctorData.doctor_name} ${doctorData.specialization !== 'All Specializations' ? `(${doctorData.specialization})` : ''}</p>
+                    <div style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                        <div class="bill-row"><span>Total Appointments</span><span><strong>${doctorData.total_appointments}</strong></span></div>
+                        <div class="bill-row"><span>Patients Attended</span><span>${patientList}</span></div>
+                        <div class="bill-row"><span>Total Consultation Fees</span><span><strong>$${doctorData.total_doctor_fees.toFixed(2)}</strong></span></div>
+                        <div class="bill-row"><span>Report Generated</span><span>${new Date().toLocaleString()}</span></div>
+                    </div>
+                    
+                    ${!doctorId && doctorReport.length > 0 ? `
+                        <h4>Doctor-wise Breakdown</h4>
+                        <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                            ${doctorReport.map(d => 
+                                `<div class="bill-row">
+                                    <span>${d.doctor_name} (${d.specialization})</span>
+                                    <span>${d.total_appointments} appointments - $${d.total_doctor_fees.toFixed(2)}</span>
+                                </div>`
+                            ).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <button class="btn btn-primary no-print" onclick="window.print()">🖨️ Print Report</button>
+                `;
+            } catch (error) {
+                console.error('Error generating doctor report:', error);
+                showToast('Error generating report', 'error');
             }
-
-            const totalConsultation = filtered.reduce((sum, a) => sum + a.doctorFee, 0);
-            const patientList = filtered.map(a => a.patientName).join(', ') || 'None';
-            const doctor = doctorId ? HMS.doctors.getById(doctorId) : null;
-
-            document.getElementById('doctorReportContent').style.display = 'block';
-            document.getElementById('doctorReportContent').innerHTML = `
-                <div class="card-title">📊 Doctor Report - ${date}</div>
-                ${doctor ? `<p><strong>Doctor:</strong> ${doctor.name} (${doctor.specialization})</p>` : '<p><strong>All Doctors</strong></p>'}
-                <div style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
-                    <div class="bill-row"><span>Total Appointments</span><span><strong>${filtered.length}</strong></span></div>
-                    <div class="bill-row"><span>Patients Attended</span><span>${patientList}</span></div>
-                    <div class="bill-row"><span>Total Consultation Fees</span><span><strong>$${totalConsultation}</strong></span></div>
-                    <div class="bill-row"><span>Report Generated</span><span>${new Date().toLocaleString()}</span></div>
-                </div>
-                <button class="btn btn-primary no-print" onclick="window.print()">🖨️ Print Report</button>
-            `;
         }
 
         // Generate Hospital Report
-        function generateHospitalReport() {
-            const date = document.getElementById('hospitalReportDate').value;
+        async function generateHospitalReport() {
+            const startDate = document.getElementById('hospitalStartDate').value;
+            const endDate = document.getElementById('hospitalEndDate').value;
 
-            if (!date) {
-                alert('Please select a date');
+            if (!startDate || !endDate) {
+                showToast('Please select both start and end dates', 'error');
                 return;
             }
 
-            const filtered = HMS.appointments.getByDate(date);
+            try {
+                // Get summary report data
+                const summary = await API.Reports.getSummary(startDate, endDate);
+                
+                // Get doctor-wise data
+                const doctorReport = await API.Reports.getDoctorWise(startDate, endDate);
+                
+                // Get service-wise data
+                const serviceReport = await API.Reports.getServiceWise(startDate, endDate);
 
-            const totalDoctorFees = filtered.reduce((sum, a) => sum + a.doctorFee, 0);
-            const totalHospitalCharges = filtered.reduce((sum, a) => sum + a.hospitalCharges, 0);
-            const totalAdditional = filtered.reduce((sum, a) => sum + a.additionalTotal, 0);
-            const grandTotal = filtered.reduce((sum, a) => sum + a.total, 0);
+                const dateRange = startDate === endDate ? formatDate(startDate) : `${formatDate(startDate)} to ${formatDate(endDate)}`;
 
-            // Doctor-wise summary
-            const doctorSummary = {};
-            filtered.forEach(a => {
-                doctorSummary[a.doctorName] = (doctorSummary[a.doctorName] || 0) + 1;
-            });
+                document.getElementById('hospitalReportContent').style.display = 'block';
+                document.getElementById('hospitalReportContent').innerHTML = `
+                    <div class="card-title">🏥 Hospital Report - ${dateRange}</div>
+                    
+                    <h4>📊 Summary Statistics</h4>
+                    <div style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                        <div class="bill-row"><span>New Patients Registered</span><span><strong>${summary.patients.new_registrations}</strong></span></div>
+                        <div class="bill-row"><span>Total Appointments</span><span><strong>${summary.appointments.total}</strong></span></div>
+                        <div class="bill-row"><span>Completed Appointments</span><span>${summary.appointments.completed}</span></div>
+                        <div class="bill-row"><span>Cancelled Appointments</span><span>${summary.appointments.cancelled}</span></div>
+                        <div class="bill-row"><span>Scheduled Appointments</span><span>${summary.appointments.scheduled}</span></div>
+                        <div class="bill-row"><span>Completion Rate</span><span>${summary.appointments.completion_rate}%</span></div>
+                    </div>
 
-            document.getElementById('hospitalReportContent').style.display = 'block';
-            document.getElementById('hospitalReportContent').innerHTML = `
-                <div class="card-title">🏥 Daily Hospital Report - ${date}</div>
-                <div style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
-                    <div class="bill-row"><span>Total Patients</span><span><strong>${filtered.length}</strong></span></div>
-                    <div class="bill-row"><span>Total Doctor Fees</span><span>$${totalDoctorFees}</span></div>
-                    <div class="bill-row"><span>Total Hospital Charges</span><span>$${totalHospitalCharges}</span></div>
-                    <div class="bill-row"><span>Total Additional Services</span><span>$${totalAdditional}</span></div>
-                    <div class="bill-row bill-total"><span>GRAND TOTAL REVENUE</span><span>$${grandTotal}</span></div>
-                </div>
-                <h4>Doctor-wise Summary</h4>
-                <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
-                    ${Object.entries(doctorSummary).map(([name, count]) => 
-                        `<div class="bill-row"><span>${name}</span><span>${count} appointments</span></div>`
-                    ).join('') || '<p>No data for this date</p>'}
-                </div>
-                <p style="color:#64748b; font-size: 13px;">Report Generated: ${new Date().toLocaleString()}</p>
-                <button class="btn btn-primary no-print" onclick="window.print()">🖨️ Print Report</button>
-            `;
+                    <h4>💰 Revenue Breakdown</h4>
+                    <div style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                        <div class="bill-row"><span>Doctor Fees Collected</span><span>$${summary.revenue.doctor_fees.toFixed(2)}</span></div>
+                        <div class="bill-row"><span>Hospital Charges</span><span>$${summary.revenue.hospital_charges.toFixed(2)}</span></div>
+                        <div class="bill-row"><span>Additional Services</span><span>$${summary.revenue.additional_services.toFixed(2)}</span></div>
+                        <div class="bill-row"><span>Pending Payments</span><span>$${summary.revenue.pending_amount.toFixed(2)}</span></div>
+                        <div class="bill-row bill-total"><span>TOTAL COLLECTED</span><span><strong>$${summary.revenue.total_collected.toFixed(2)}</strong></span></div>
+                    </div>
+
+                    ${doctorReport.length > 0 ? `
+                        <h4>👨‍⚕️ Doctor-wise Summary</h4>
+                        <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                            ${doctorReport.map(d => 
+                                `<div class="bill-row">
+                                    <span>${d.doctor_name} (${d.specialization})</span>
+                                    <span>${d.total_appointments} appointments - $${d.total_doctor_fees.toFixed(2)}</span>
+                                </div>`
+                            ).join('')}
+                        </div>
+                    ` : ''}
+
+                    ${serviceReport.length > 0 ? `
+                        <h4>🩺 Additional Services Summary</h4>
+                        <div style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                            ${serviceReport.map(s => 
+                                `<div class="bill-row">
+                                    <span>${s.service_type}</span>
+                                    <span>${s.count} times - $${s.total_amount.toFixed(2)}</span>
+                                </div>`
+                            ).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <p style="color:#64748b; font-size: 13px;">Report Generated: ${new Date().toLocaleString()}</p>
+                    <button class="btn btn-primary no-print" onclick="window.print()">🖨️ Print Report</button>
+                `;
+            } catch (error) {
+                console.error('Error generating hospital report:', error);
+                showToast('Error generating report', 'error');
+            }
+        }
+
+        // Generate Summary Report
+        async function generateSummaryReport() {
+            const date = document.getElementById('summaryDate').value;
+
+            if (!date) {
+                showToast('Please select a date', 'error');
+                return;
+            }
+
+            try {
+                // Get daily summary
+                const summary = await API.Reports.getDaily(date);
+                
+                // Get appointments by date for chart data
+                const appointmentsByDate = await API.Reports.getAppointmentsByDate(date, date);
+
+                document.getElementById('summaryReportContent').style.display = 'block';
+                document.getElementById('summaryReportContent').innerHTML = `
+                    <div class="card-title">📈 Daily Summary Report - ${formatDate(date)}</div>
+                    
+                    <div class="form-grid" style="margin: 20px 0;">
+                        <div class="card" style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                            <h3 style="margin: 0; font-size: 2em;">${summary.appointments.total}</h3>
+                            <p style="margin: 5px 0;">Total Appointments</p>
+                        </div>
+                        <div class="card" style="text-align: center; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                            <h3 style="margin: 0; font-size: 2em;">${summary.patients.new_registrations}</h3>
+                            <p style="margin: 5px 0;">New Patients</p>
+                        </div>
+                        <div class="card" style="text-align: center; padding: 20px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                            <h3 style="margin: 0; font-size: 2em;">$${summary.revenue.total_collected.toFixed(0)}</h3>
+                            <p style="margin: 5px 0;">Revenue Collected</p>
+                        </div>
+                        <div class="card" style="text-align: center; padding: 20px; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white;">
+                            <h3 style="margin: 0; font-size: 2em;">${summary.appointments.completion_rate}%</h3>
+                            <p style="margin: 5px 0;">Completion Rate</p>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+                        <div>
+                            <h4>📊 Appointment Status</h4>
+                            <div style="padding: 15px; background: #f8fafc; border-radius: 8px;">
+                                <div class="bill-row"><span>Completed</span><span>${summary.appointments.completed}</span></div>
+                                <div class="bill-row"><span>Scheduled</span><span>${summary.appointments.scheduled}</span></div>
+                                <div class="bill-row"><span>Cancelled</span><span>${summary.appointments.cancelled}</span></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4>💰 Revenue Sources</h4>
+                            <div style="padding: 15px; background: #f8fafc; border-radius: 8px;">
+                                <div class="bill-row"><span>Doctor Fees</span><span>$${summary.revenue.doctor_fees.toFixed(2)}</span></div>
+                                <div class="bill-row"><span>Hospital Charges</span><span>$${summary.revenue.hospital_charges.toFixed(2)}</span></div>
+                                <div class="bill-row"><span>Additional Services</span><span>$${summary.revenue.additional_services.toFixed(2)}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p style="color:#64748b; font-size: 13px;">Report Generated: ${new Date().toLocaleString()}</p>
+                    <button class="btn btn-primary no-print" onclick="window.print()">🖨️ Print Report</button>
+                `;
+            } catch (error) {
+                console.error('Error generating summary report:', error);
+                showToast('Error generating report', 'error');
+            }
         }
 
         // Initialize
@@ -161,10 +352,12 @@
             
             // Set default dates to today
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('reportDate').value = today;
-            document.getElementById('hospitalReportDate').value = today;
+            document.getElementById('reportStartDate').value = today;
+            document.getElementById('reportEndDate').value = today;
+            document.getElementById('hospitalStartDate').value = today;
+            document.getElementById('hospitalEndDate').value = today;
+            document.getElementById('summaryDate').value = today;
         });
     </script>
-    <script src="/static/js/api.js"></script>
 </body>
 </html>
