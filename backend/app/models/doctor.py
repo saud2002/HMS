@@ -33,7 +33,6 @@ class Doctor(Base):
     # Relationships
     appointments = relationship("Appointment", back_populates="doctor")
     token_counters = relationship("TokenCounter", back_populates="doctor")
-    vouchers = relationship("Voucher", back_populates="doctor")
     
     def __repr__(self):
         return f"<Doctor(id='{self.doctor_id}', name='{self.doctor_name}', spec='{self.specialization}')>"
