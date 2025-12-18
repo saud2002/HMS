@@ -48,27 +48,27 @@ function renderSidebar() {
             <div class="logo-text">HMS Portal</div>
         </div>
         <div class="menu">
-            <a class="menu-item ${currentPage === 'index.html' ? 'active' : ''}" href="index.html">
+            <a class="menu-item ${currentPage === 'index.html' ? 'active' : ''}" href="/">
                 <svg viewBox="0 0 24 24">${ICONS.dashboard}</svg>
                 <span>Dashboard</span>
             </a>
-            <a class="menu-item ${currentPage === 'patients.html' ? 'active' : ''}" href="patients.html">
+            <a class="menu-item ${currentPage === 'patients.html' ? 'active' : ''}" href="/patients.html">
                 <svg viewBox="0 0 24 24">${ICONS.patients}</svg>
                 <span>Patients</span>
             </a>
-            <a class="menu-item ${currentPage === 'doctors.html' ? 'active' : ''}" href="doctors.html">
+            <a class="menu-item ${currentPage === 'doctors.html' ? 'active' : ''}" href="/doctors.html">
                 <svg viewBox="0 0 24 24">${ICONS.doctors}</svg>
                 <span>Doctors</span>
             </a>
-            <a class="menu-item ${currentPage === 'appointments.html' ? 'active' : ''}" href="appointments.html">
+            <a class="menu-item ${currentPage === 'appointments.html' ? 'active' : ''}" href="/appointments.html">
                 <svg viewBox="0 0 24 24">${ICONS.appointments}</svg>
                 <span>Appointments</span>
             </a>
-            <a class="menu-item ${currentPage === 'reports.html' ? 'active' : ''}" href="reports.html">
+            <a class="menu-item ${currentPage === 'reports.html' ? 'active' : ''}" href="/reports.html">
                 <svg viewBox="0 0 24 24">${ICONS.reports}</svg>
                 <span>Reports</span>
             </a>
-            <a class="menu-item ${currentPage === 'settings.html' ? 'active' : ''}" href="settings.html">
+            <a class="menu-item ${currentPage === 'settings.html' ? 'active' : ''}" href="/settings.html">
                 <svg viewBox="0 0 24 24">${ICONS.settings}</svg>
                 <span>Settings</span>
             </a>

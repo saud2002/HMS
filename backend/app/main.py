@@ -223,6 +223,12 @@ def redirect_to_login():
     frontend_path = Path(__file__).parent.parent.parent / "frontend" / "login.html"
     return FileResponse(str(frontend_path))
 
+@app.get("/index.html")
+def redirect_to_dashboard(request: Request):
+    """Redirect index.html to root dashboard"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/", status_code=302)
+
 # --- Frontend Routes ---
 @app.get("/patients.html")
 def serve_patients(request: Request):
