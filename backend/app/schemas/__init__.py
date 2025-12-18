@@ -7,6 +7,7 @@ from .doctor import DoctorCreate, DoctorUpdate, DoctorResponse
 from .appointment import AppointmentCreate, AppointmentResponse
 from .bill import BillResponse
 from .additional_expense import AdditionalExpenseCreate, AdditionalExpenseResponse
+from .service import ServiceCreate, ServiceUpdate, ServiceResponse
 
 __all__ = [
     "AdminCreate", "AdminLogin", "AdminResponse", "TokenResponse",
@@ -14,5 +15,6 @@ __all__ = [
     "DoctorCreate", "DoctorUpdate", "DoctorResponse", 
     "AppointmentCreate", "AppointmentResponse",
     "BillResponse",
-    "AdditionalExpenseCreate", "AdditionalExpenseResponse"
+    "AdditionalExpenseCreate", "AdditionalExpenseResponse",
+    "ServiceCreate", "ServiceUpdate", "ServiceResponse"
 ]

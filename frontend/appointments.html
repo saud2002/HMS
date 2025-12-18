@@ -25,12 +25,7 @@
         <div id="newTab">
             <div class="card">
                 <div class="card-title">📅 Create New Appointment</div>
-                <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                    <small style="color: #1e40af;">
-                        💡 <strong>Tip:</strong> Need to register a new patient? Use the "+ New Patient" button  or visit the 
-                        <a href="/patients.html" style="color: #2563eb; text-decoration: underline;">Patients page</a> first.
-                    </small>
-                </div>
+               
                
                 <div class="form-grid">
                     <div class="form-group">
@@ -75,16 +70,8 @@
                 </div>
 
                 <div class="card-title" style="margin-top: 20px;">🩺 Additional Services</div>
-                <div class="checkbox-group">
-                    <label class="checkbox-item"><input type="checkbox" id="svcDressing" value="25"> Dressing ($25)</label>
-                    <label class="checkbox-item"><input type="checkbox" id="svcScanning" value="150"> Scanning ($150)</label>
-                    <label class="checkbox-item"><input type="checkbox" id="svcBlood" value="75"> Blood Testing ($75)</label>
-                    <label class="checkbox-item"><input type="checkbox" id="svcECG" value="100"> ECG ($100)</label>
-                    <label class="checkbox-item"><input type="checkbox" id="svcOther" value="0"> Other</label>
-                </div>
-                <div class="form-group" id="otherServiceGroup" style="display: none; margin-top: 15px;">
-                    <label>Other Service Amount ($)</label>
-                    <input type="number" id="otherServiceAmount" value="0" min="0">
+                <div class="checkbox-group" id="servicesCheckboxGroup">
+                    <!-- Services will be loaded dynamically from settings -->
                 </div>
 
                 <div style="margin-top: 20px;">
@@ -202,7 +189,7 @@
             if (tab === 'list' || tab === 'all') renderAppointments();
         }
 
-        // Populate dropdowns
+        // Populate dropdowns and services
         async function populateDropdowns() {
             try {
                 const patients = await API.Patients.getAll();
@@ -215,9 +202,44 @@
                 document.getElementById('appointmentDoctor').innerHTML = 
                     '<option value="">-- Select Doctor --</option>' +
                     doctors.map(d => `<option value="${d.doctor_id}">${d.doctor_name} - ${d.specialization}</option>`).join('');
+
+                // Auto-select first doctor if available
+                if (doctors.length > 0) {
+                    document.getElementById('appointmentDoctor').value = doctors[0].doctor_id;
+                    await fillDoctorDetails();
+                }
+
+                // Load services from settings
+                await loadServices();
             } catch (error) {
                 console.error('Error loading dropdowns:', error);
                 showToast('Error loading patients and doctors', 'error');
+            }
+        }
+
+        // Load services from settings
+        async function loadServices() {
+            try {
+                const response = await fetch('/api/services');
+                const services = await response.json();
+                
+                const container = document.getElementById('servicesCheckboxGroup');
+                
+                if (services.length === 0) {
+                    container.innerHTML = '<p style="color: #64748b; font-style: italic;">No additional services configured. <a href="/settings.html" style="color: #2563eb;">Configure services in Settings</a></p>';
+                    return;
+                }
+
+                container.innerHTML = services.map(service => `
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="svc_${service.id}" value="${service.price}" data-service-id="${service.id}" data-service-name="${String(service.name).replace(/"/g, '&quot;')}">
+                        ${service.name} (Rs. ${parseFloat(service.price).toFixed(2)})
+                    </label>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading services:', error);
+                document.getElementById('servicesCheckboxGroup').innerHTML = '<p style="color: #dc2626;">Error loading services</p>';
             }
         }
 
@@ -253,7 +275,7 @@
             try {
                 const d = await API.Doctors.getById(doctorId);
                 document.getElementById('appointmentSpecialization').value = d ? d.specialization : '';
-                document.getElementById('appointmentDoctorFee').value = d ? '$' + d.consultation_charges : '';
+                document.getElementById('appointmentDoctorFee').value = d ? 'Rs. ' + d.consultation_charges : '';
             } catch (error) {
                 console.error('Error loading doctor details:', error);
                 document.getElementById('appointmentSpecialization').value = '';
@@ -263,10 +285,15 @@
 
         // Create appointment
         async function createAppointment() {
+            console.log('🔍 Create appointment button clicked');
+            
             const patientId = parseInt(document.getElementById('appointmentPatient').value);
             const doctorId = document.getElementById('appointmentDoctor').value;
 
+            console.log('🔍 Patient ID:', patientId, 'Doctor ID:', doctorId);
+
             if (!patientId || !doctorId) {
+                console.log('🔍 Missing patient or doctor selection');
                 showToast('Please select both patient and doctor', 'error');
                 return;
             }
@@ -274,6 +301,8 @@
             const hospitalCharges = parseFloat(document.getElementById('hospitalCharges').value) || 0;
 
             try {
+                console.log('🔍 Creating appointment...');
+                
                 // Create appointment
                 const appointmentData = {
                     patient_id: patientId,
@@ -282,41 +311,94 @@
                     hospital_charges: hospitalCharges
                 };
 
+                console.log('🔍 Appointment data:', appointmentData);
                 const appointment = await API.Appointments.create(appointmentData);
+                console.log('🔍 Appointment created:', appointment);
                 
                 // Add additional services if any
                 const additionalServices = [];
-                if (document.getElementById('svcDressing').checked) {
-                    additionalServices.push({ service_type: 'Dressing', service_description: 'Wound dressing and bandaging', amount: 25 });
-                }
-                if (document.getElementById('svcScanning').checked) {
-                    additionalServices.push({ service_type: 'Scanning', service_description: 'CT scan, MRI, X-Ray services', amount: 150 });
-                }
-                if (document.getElementById('svcBlood').checked) {
-                    additionalServices.push({ service_type: 'Blood Testing', service_description: 'Laboratory blood test', amount: 75 });
-                }
-                if (document.getElementById('svcECG').checked) {
-                    additionalServices.push({ service_type: 'ECG', service_description: 'Electrocardiogram services', amount: 100 });
-                }
-                if (document.getElementById('svcOther').checked) {
-                    const otherAmt = parseFloat(document.getElementById('otherServiceAmount').value) || 0;
-                    if (otherAmt > 0) {
-                        additionalServices.push({ service_type: 'Other', service_description: 'Other medical services', amount: otherAmt });
+                const serviceCheckboxes = document.querySelectorAll('#servicesCheckboxGroup input[type="checkbox"]:checked');
+                
+                for (const checkbox of serviceCheckboxes) {
+                    const serviceId = checkbox.dataset.serviceId;
+                    const amount = parseFloat(checkbox.value);
+                    
+                    // Get service name safely - fallback to parsing from text content
+                    let serviceName = checkbox.dataset.serviceName;
+                    if (!serviceName || serviceName === '[object Object]') {
+                        serviceName = checkbox.parentElement.textContent.split('(Rs.')[0].trim();
                     }
-                }
-
-                // Add additional expenses
-                for (const service of additionalServices) {
-                    await API.Expenses.add({
-                        appointment_id: appointment.appointment_id,
-                        ...service
+                    
+                    // Validate service data
+                    if (!serviceName || serviceName.trim() === '') {
+                        console.warn('⚠️ Skipping service with empty name');
+                        continue;
+                    }
+                    if (isNaN(amount) || amount <= 0) {
+                        console.warn('⚠️ Skipping service with invalid amount:', amount);
+                        continue;
+                    }
+                    
+                    console.log('🔍 Service:', { serviceId, serviceName, amount });
+                    
+                    // Map service type to match backend validation
+                    let mappedServiceType = serviceName.trim();
+                    
+                    // If the service name doesn't match the backend pattern, use "Other Services"
+                    const allowedTypes = ['Dressing', 'Scanning', 'Blood Testing', 'ECG', 'Other Services'];
+                    if (!allowedTypes.includes(mappedServiceType)) {
+                        mappedServiceType = 'Other Services';
+                    }
+                    
+                    additionalServices.push({
+                        service_type: mappedServiceType,
+                        service_description: `${serviceName.trim()} - Additional medical service`,
+                        amount: amount
                     });
                 }
 
-                showToast('Appointment created successfully!', 'success');
-                
+                // Add additional expenses
+                console.log('🔍 Adding additional services:', additionalServices);
+                if (additionalServices.length > 0) {
+                    console.log('🔍 Processing', additionalServices.length, 'additional services...');
+                    for (let i = 0; i < additionalServices.length; i++) {
+                        const service = additionalServices[i];
+                        try {
+                            console.log(`🔍 Adding service ${i + 1}/${additionalServices.length}:`, service);
+                            const expenseData = {
+                                appointment_id: appointment.appointment_id,
+                                service_type: service.service_type,
+                                service_description: service.service_description,
+                                amount: service.amount
+                            };
+                            console.log('🔍 Expense data:', expenseData);
+                            const result = await API.Expenses.add(expenseData);
+                            console.log('🔍 Service added successfully:', result);
+                        } catch (serviceError) {
+                            console.error('❌ Error adding service:', serviceError);
+                            // Extract proper error message
+                            let errorMsg = 'Unknown error';
+                            if (serviceError && serviceError.message) {
+                                errorMsg = serviceError.message;
+                            } else if (typeof serviceError === 'string') {
+                                errorMsg = serviceError;
+                            } else if (serviceError && serviceError.detail) {
+                                errorMsg = serviceError.detail;
+                            }
+                            console.log('🔍 Processed error message:', errorMsg);
+                            // Don't throw error, just log it and continue
+                            showToast(`Warning: Failed to add service "${service.service_type}": ${errorMsg}`, 'warning');
+                        }
+                    }
+                } else {
+                    console.log('🔍 No additional services to add');
+                }
+
                 // Show bill
+                console.log('🔍 Getting full appointment details...');
                 const fullAppointment = await API.Appointments.getById(appointment.appointment_id);
+                console.log('🔍 Full appointment:', fullAppointment);
+                console.log('🔍 Showing bill...');
                 showBill(fullAppointment);
 
                 // Reset form
@@ -324,8 +406,7 @@
                 document.getElementById('appointmentDoctor').value = '';
                 await fillPatientDetails();
                 await fillDoctorDetails();
-                document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-                document.getElementById('otherServiceGroup').style.display = 'none';
+                document.querySelectorAll('#servicesCheckboxGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
                 document.getElementById('hospitalCharges').value = '50';
 
             } catch (error) {
@@ -336,9 +417,25 @@
 
         // Show bill
         function showBill(appt) {
-            document.getElementById('billContent').innerHTML = generateBillHTML(appt);
-            document.getElementById('billModal').classList.add('active');
-        }
+            console.log('🔍 showBill called with:', appt);
+            const billContent = document.getElementById('billContent');
+            const billModal = document.getElementById('billModal');
+            
+            if (!billContent) {
+                console.error('❌ billContent element not found');
+                return;
+            }
+            if (!billModal) {
+                console.error('❌ billModal element not found');
+                return;
+            }
+            
+            console.log('🔍 Generating bill HTML...');
+            billContent.innerHTML = generateBillHTML(appt);
+            console.log('🔍 Adding active class to modal...');
+            billModal.classList.add('active');
+            console.log('🔍 Bill modal should now be visible');
+        }            
 
         // Generate bill HTML
         function generateBillHTML(appt) {
@@ -527,11 +624,6 @@
             populateDropdowns();
             renderAppointments();
             checkUrlParams();
-
-            // Toggle other service input
-            document.getElementById('svcOther').addEventListener('change', function() {
-                document.getElementById('otherServiceGroup').style.display = this.checked ? 'block' : 'none';
-            });
         });
     </script>
 </body>

@@ -53,8 +53,8 @@
                 <input type="hidden" id="doctorEditId">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Doctor ID *</label>
-                        <input type="text" id="doctorId" required placeholder="e.g., DR001">
+                        <label>Doctor ID * (Auto-generated)</label>
+                        <input type="text" id="doctorId" required placeholder="Auto-generated" readonly>
                     </div>
                     <div class="form-group">
                         <label>Doctor Name *</label>
@@ -126,6 +126,32 @@
             }
         }
 
+        // Generate next doctor ID
+        async function generateNextDoctorId() {
+            try {
+                const doctors = await API.Doctors.getAll();
+                let maxId = 0;
+                
+                // Find the highest existing doctor ID number
+                doctors.forEach(doctor => {
+                    const match = doctor.doctor_id.match(/DR(\d+)/);
+                    if (match) {
+                        const num = parseInt(match[1]);
+                        if (num > maxId) {
+                            maxId = num;
+                        }
+                    }
+                });
+                
+                // Generate next ID
+                const nextId = maxId + 1;
+                return `DR${nextId.toString().padStart(3, '0')}`;
+            } catch (error) {
+                console.error('Error generating doctor ID:', error);
+                return 'DR001'; // Default fallback
+            }
+        }
+
         // Open modal
         async function openDoctorModal(id = null) {
             document.getElementById('doctorModal').classList.add('active');
@@ -133,6 +159,13 @@
             document.getElementById('doctorEditId').value = '';
             document.getElementById('doctorModalTitle').textContent = 'Add New Doctor';
             document.getElementById('doctorId').readOnly = false;
+
+            // Auto-generate doctor ID for new doctors
+            if (!id) {
+                const nextId = await generateNextDoctorId();
+                document.getElementById('doctorId').value = nextId;
+                document.getElementById('doctorId').readOnly = true; // Make it read-only so user can't change it
+            }
 
             if (id) {
                 try {

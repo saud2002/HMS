@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - HMS</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="topbar" id="topbar"></div>
+    
+    <div class="main-content">
+        <div class="page-header">
+            <h1>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                System Settings
+            </h1>
+            <p>Manage additional services and system configuration for your hospital management system</p>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-header">
+                <div>
+                    <h2>🩺 Additional Services Management</h2>
+                    <p>Configure additional services and their charges for appointments</p>
+                </div>
+                <button class="btn btn-primary" onclick="openAddServiceModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Add New Service
+                </button>
+            </div>
+
+            <div class="services-grid" id="servicesGrid">
+                <!-- Services will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Service Modal -->
+    <div id="serviceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add New Service</h3>
+                <button class="close-btn" onclick="closeServiceModal()">&times;</button>
+            </div>
+            <form id="serviceForm" onsubmit="saveService(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="serviceName">Service Name *</label>
+                        <input type="text" id="serviceName" required class="form-control" placeholder="e.g., X-Ray, Blood Test">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="serviceDescription">Description</label>
+                        <textarea id="serviceDescription" class="form-control" rows="3" placeholder="Service description (optional)"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="servicePrice">Price (Rs.) *</label>
+                        <input type="number" id="servicePrice" required class="form-control" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="serviceCategory">Category</label>
+                        <select id="serviceCategory" class="form-control">
+                            <option value="Laboratory">Laboratory</option>
+                            <option value="Radiology">Radiology</option>
+                            <option value="Pharmacy">Pharmacy</option>
+                            <option value="Procedure">Procedure</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeServiceModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Service</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        let currentEditingService = null;
+
+        async function loadServices() {
+            try {
+                const response = await fetch('/api/services');
+                const services = await response.json();
+                
+                const grid = document.getElementById('servicesGrid');
+                
+                if (services.length === 0) {
+                    grid.innerHTML = '<div class="empty-state"><h3>No Services Added</h3><p>Add your first additional service</p></div>';
+                    return;
+                }
+
+                grid.innerHTML = services.map(service => `
+                    <div class="service-card">
+                        <span class="service-category">${service.category || 'Other'}</span>
+                        <div class="service-header">
+                            <h4>${service.name}</h4>
+                            <span class="service-price">Rs. ${parseFloat(service.price).toFixed(2)}</span>
+                        </div>
+                        <p class="service-description">${service.description || 'No description provided'}</p>
+                        <div class="service-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="editService(${service.id})">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                                Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteService(${service.id})">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading services:', error);
+            }
+        }
+
+        function openAddServiceModal() {
+            currentEditingService = null;
+            document.getElementById('modalTitle').textContent = 'Add New Service';
+            document.getElementById('serviceForm').reset();
+            document.getElementById('serviceModal').classList.add('active');
+        }
+
+        function closeServiceModal() {
+            document.getElementById('serviceModal').classList.remove('active');
+        }
+
+        async function saveService(event) {
+            event.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('serviceName').value,
+                description: document.getElementById('serviceDescription').value,
+                price: parseFloat(document.getElementById('servicePrice').value),
+                category: document.getElementById('serviceCategory').value
+            };
+
+            try {
+                const url = currentEditingService ? `/api/services/${currentEditingService}` : '/api/services';
+                const method = currentEditingService ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    alert(currentEditingService ? 'Service updated!' : 'Service added!');
+                    closeServiceModal();
+                    loadServices();
+                }
+            } catch (error) {
+                console.error('Error saving service:', error);
+            }
+        }
+
+        async function editService(serviceId) {
+            try {
+                const response = await fetch(`/api/services/${serviceId}`);
+                const service = await response.json();
+                
+                currentEditingService = serviceId;
+                document.getElementById('modalTitle').textContent = 'Edit Service';
+                document.getElementById('serviceName').value = service.name;
+                document.getElementById('serviceDescription').value = service.description || '';
+                document.getElementById('servicePrice').value = service.price;
+                document.getElementById('serviceCategory').value = service.category;
+                document.getElementById('serviceModal').classList.add('active');
+            } catch (error) {
+                console.error('Error loading service:', error);
+            }
+        }
+
+        async function deleteService(serviceId) {
+            if (!confirm('Delete this service?')) return;
+
+            try {
+                const response = await fetch(`/api/services/${serviceId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    alert('Service deleted!');
+                    loadServices();
+                }
+            } catch (error) {
+                console.error('Error deleting service:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadServices);
+    </script>
+</body>
+</html>

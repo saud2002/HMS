@@ -7,7 +7,7 @@ from datetime import datetime
 
 class AdditionalExpenseCreate(BaseModel):
     appointment_id: int = Field(..., gt=0)
-    service_type: str = Field(..., pattern="^(Dressing|Scanning|Blood Testing|ECG|Other Services)$")
+    service_type: str = Field(..., min_length=1, max_length=100)
     service_description: Optional[str] = Field(None, max_length=255)
     amount: float = Field(..., ge=0)
     

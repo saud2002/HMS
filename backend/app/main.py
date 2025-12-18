@@ -64,17 +64,20 @@ async def startup_event():
 # =====================================================
 def generate_token_number(db: Session, doctor_id: str, appointment_date: date) -> str:
     """Generate token number using database procedure or fallback method"""
-    try:
-        # Try to use stored procedure first
-        result = db.execute(
-            text("CALL sp_generate_token(:doctor_id, :appointment_date, @token_number)"),
-            {"doctor_id": doctor_id, "appointment_date": appointment_date}
-        )
-        token_result = db.execute(text("SELECT @token_number")).fetchone()
-        if token_result and token_result[0]:
-            return token_result[0]
-    except Exception as e:
-        print(f"Stored procedure failed, using fallback: {e}")
+    # Skip stored procedure for now to use our custom logic
+    # try:
+    #     # Try to use stored procedure first
+    #     result = db.execute(
+    #         text("CALL sp_generate_token(:doctor_id, :appointment_date, @token_number)"),
+    #         {"doctor_id": doctor_id, "appointment_date": appointment_date}
+    #     )
+    #     token_result = db.execute(text("SELECT @token_number")).fetchone()
+    #     if token_result and token_result[0]:
+    #         return token_result[0]
+    # except Exception as e:
+    #     print(f"Stored procedure failed, using fallback: {e}")
+    
+    print(f"🔍 Generating token for doctor {doctor_id} on {appointment_date}")
     
     # Fallback method
     counter = db.query(TokenCounter).filter(
@@ -82,10 +85,23 @@ def generate_token_number(db: Session, doctor_id: str, appointment_date: date) -
         TokenCounter.token_date == appointment_date
     ).first()
     
+    print(f"🔍 Looking for existing counter for doctor {doctor_id} on {appointment_date}")
+    
     if counter:
+        print(f"🔍 Found existing counter with last_token_number: {counter.last_token_number}")
+        
+        # Fix any counter that has 0 or negative value
+        if counter.last_token_number <= 0:
+            print(f"🔍 WARNING: Counter had invalid value {counter.last_token_number}, resetting to 0")
+            counter.last_token_number = 0
+        
+        # Increment the counter for existing record
         counter.last_token_number += 1
         token_num = counter.last_token_number
+        print(f"🔍 Existing counter found, incremented to: {token_num}")
     else:
+        print(f"🔍 No existing counter found, creating new one")
+        # Create new counter starting from 1 (not 0)
         counter = TokenCounter(
             doctor_id=doctor_id,
             token_date=appointment_date,
@@ -93,10 +109,32 @@ def generate_token_number(db: Session, doctor_id: str, appointment_date: date) -
         )
         db.add(counter)
         token_num = 1
+        print(f"🔍 New counter created, starting at: {token_num}")
+    
+    # Final safety check - ensure token number is never 0
+    if token_num <= 0:
+        print(f"🔍 CRITICAL: Token number was {token_num}, forcing to 1")
+        token_num = 1
+        counter.last_token_number = 1
     
     db.commit()
     date_str = appointment_date.strftime("%Y%m%d")
-    return f"{doctor_id}-{date_str}-{token_num:03d}"
+    token_string = f"{doctor_id}-{date_str}-{token_num:03d}"
+    print(f"🔍 Generated token: {token_string}")
+    return token_string
+
+# Debug endpoint to reset token counters
+@app.post("/api/debug/reset-token-counters")
+def reset_token_counters(db: Session = Depends(get_db)):
+    """Reset all token counters to start from 1"""
+    try:
+        # Delete all existing token counters
+        db.query(TokenCounter).delete()
+        db.commit()
+        return {"message": "All token counters reset successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error resetting counters: {str(e)}")
 
 def log_action(db: Session, admin_id: int, action: str, table: str = None, record_id: int = None, desc: str = None):
     """Log system action for audit trail"""
@@ -224,6 +262,16 @@ def serve_reports(request: Request):
         return auth_redirect
     
     frontend_path = Path(__file__).parent.parent.parent / "frontend" / "reports.html"
+    return FileResponse(str(frontend_path))
+
+@app.get("/settings.html")
+def serve_settings(request: Request):
+    # Check authentication
+    auth_redirect = check_frontend_auth(request)
+    if auth_redirect:
+        return auth_redirect
+    
+    frontend_path = Path(__file__).parent.parent.parent / "frontend" / "settings.html"
     return FileResponse(str(frontend_path))
 
 # --- API Info Endpoint ---
@@ -1077,20 +1125,48 @@ async def login_raw(request: Request):
 
 @app.post("/api/auth/login")
 async def login(request: Request):
-    """Simple working login endpoint"""
+    """Database-based login endpoint"""
     try:
         # Parse request
         body = await request.json()
         username = body.get("username", "")
         password = body.get("password", "")
         
-        # Simple hardcoded check for admin
-        if username == "admin" and password == "admin123":
-            # Create token
-            from datetime import datetime, timedelta
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="Username and password are required")
+        
+        # Database authentication
+        from .database import SessionLocal
+        from .models.user import AdminUser
+        from passlib.context import CryptContext
+        from datetime import datetime, timedelta
+        
+        # Create password context for verification
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        db = SessionLocal()
+        
+        try:
+            # Find admin user
+            admin = db.query(AdminUser).filter(AdminUser.username == username).first()
             
+            if not admin:
+                raise HTTPException(status_code=401, detail="Invalid username or password")
+            
+            # Verify password against database
+            if not pwd_context.verify(password, admin.password_hash):
+                raise HTTPException(status_code=401, detail="Invalid username or password")
+            
+            # Check if account is active
+            if str(admin.status) != "Active":
+                raise HTTPException(status_code=403, detail="Account is inactive")
+            
+            # Update last login
+            admin.last_login = datetime.utcnow()
+            db.commit()
+            
+            # Create token
             expire = datetime.utcnow() + timedelta(minutes=480)  # 8 hours
-            token_data = {"sub": username, "admin_id": 1, "exp": expire}
+            token_data = {"sub": admin.username, "admin_id": admin.admin_id, "exp": expire}
             access_token = jwt.encode(token_data, settings.secret_key, algorithm=settings.algorithm)
             
             return {
@@ -1098,13 +1174,205 @@ async def login(request: Request):
                 "token_type": "bearer",
                 "expires_in": 28800
             }
-        else:
-            raise HTTPException(status_code=401, detail="Invalid username or password")
+            
+        finally:
+            db.close()
             
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Login error: {str(e)}")
+
+@app.post("/api/auth/reset-password")
+async def reset_password(request: Request):
+    """Reset admin password"""
+    try:
+        # Parse request
+        body = await request.json()
+        username = body.get("username", "")
+        new_password = body.get("new_password", "")
+        
+        if not username or not new_password:
+            raise HTTPException(status_code=400, detail="Username and new password are required")
+        
+        if len(new_password) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+        
+        # Manual database connection
+        from .database import SessionLocal
+        from .models.user import AdminUser
+        from passlib.context import CryptContext
+        
+        # Create password context for hashing
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        db = SessionLocal()
+        
+        try:
+            # Find admin user
+            admin = db.query(AdminUser).filter(AdminUser.username == username).first()
+            
+            if not admin:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            # Hash new password
+            new_password_hash = pwd_context.hash(new_password)
+            
+            # Update password
+            admin.password_hash = new_password_hash
+            db.commit()
+            
+            return {"message": "Password reset successfully"}
+            
+        finally:
+            db.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Password reset error: {str(e)}")
+
+# =====================================================
+# SERVICES ENDPOINTS
+# =====================================================
+@app.get("/api/services")
+def get_services(db: Session = Depends(get_db)):
+    """Get all active services"""
+    try:
+        from .models.service import Service
+        services = db.query(Service).filter(Service.is_active == "Active").all()
+        
+        result = []
+        for service in services:
+            result.append({
+                "id": service.id,
+                "name": service.name,
+                "description": service.description,
+                "price": float(service.price),
+                "category": service.category,
+                "created_at": service.created_at.isoformat(),
+                "updated_at": service.updated_at.isoformat(),
+                "is_active": service.is_active
+            })
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching services: {str(e)}")
+
+@app.get("/api/services/{service_id}")
+def get_service(service_id: int, db: Session = Depends(get_db)):
+    """Get a specific service"""
+    try:
+        from .models.service import Service
+        service = db.query(Service).filter(Service.id == service_id).first()
+        
+        if not service:
+            raise HTTPException(status_code=404, detail="Service not found")
+        
+        return {
+            "id": service.id,
+            "name": service.name,
+            "description": service.description,
+            "price": float(service.price),
+            "category": service.category,
+            "created_at": service.created_at.isoformat(),
+            "updated_at": service.updated_at.isoformat(),
+            "is_active": service.is_active
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching service: {str(e)}")
+
+@app.post("/api/services")
+async def create_service(request: Request, db: Session = Depends(get_db)):
+    """Create a new service"""
+    try:
+        from .models.service import Service
+        
+        body = await request.json()
+        name = body.get("name", "")
+        description = body.get("description", "")
+        price = body.get("price", 0)
+        category = body.get("category", "Other")
+        
+        if not name or price <= 0:
+            raise HTTPException(status_code=400, detail="Name and valid price are required")
+        
+        service = Service(
+            name=name,
+            description=description,
+            price=price,
+            category=category
+        )
+        
+        db.add(service)
+        db.commit()
+        db.refresh(service)
+        
+        return {
+            "id": service.id,
+            "name": service.name,
+            "description": service.description,
+            "price": float(service.price),
+            "category": service.category,
+            "message": "Service created successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating service: {str(e)}")
+
+@app.put("/api/services/{service_id}")
+async def update_service(service_id: int, request: Request, db: Session = Depends(get_db)):
+    """Update a service"""
+    try:
+        from .models.service import Service
+        
+        service = db.query(Service).filter(Service.id == service_id).first()
+        if not service:
+            raise HTTPException(status_code=404, detail="Service not found")
+        
+        body = await request.json()
+        
+        if "name" in body:
+            service.name = body["name"]
+        if "description" in body:
+            service.description = body["description"]
+        if "price" in body:
+            service.price = body["price"]
+        if "category" in body:
+            service.category = body["category"]
+        
+        service.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return {"message": "Service updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating service: {str(e)}")
+
+@app.delete("/api/services/{service_id}")
+def delete_service(service_id: int, db: Session = Depends(get_db)):
+    """Delete (deactivate) a service"""
+    try:
+        from .models.service import Service
+        
+        service = db.query(Service).filter(Service.id == service_id).first()
+        if not service:
+            raise HTTPException(status_code=404, detail="Service not found")
+        
+        service.is_active = "Inactive"
+        service.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return {"message": "Service deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error deleting service: {str(e)}")
 
 # =====================================================
 # RUN THE APP

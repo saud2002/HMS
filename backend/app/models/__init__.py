@@ -9,6 +9,7 @@ from .bill import Bill
 from .additional_expense import AdditionalExpense
 from .token_counter import TokenCounter
 from .system_log import SystemLog
+from .service import Service
 
 __all__ = [
     "AdminUser",
@@ -18,5 +19,6 @@ __all__ = [
     "Bill",
     "AdditionalExpense",
     "TokenCounter",
-    "SystemLog"
+    "SystemLog",
+    "Service"
 ]
