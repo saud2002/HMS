@@ -14,6 +14,7 @@ const ICONS = {
     hospital: '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>',
     addPatient: '<path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>',
     money: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>',
+    voucher: '<path d="M4 4h16v2H4zm0 4h16v2H4zm0 4h16v2H4zm0 4h10v2H4z"/>',
     check: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>'
 };
 
@@ -23,6 +24,7 @@ const PAGE_TITLES = {
     'patients.html': 'Patient Management',
     'doctors.html': 'Doctor Management',
     'appointments.html': 'Appointments & Billing',
+    'vouchers.html': 'Doctor Payments & Expenses',
     'reports.html': 'Reports & Analytics',
     'settings.html': 'System Settings'
 };
@@ -30,7 +32,13 @@ const PAGE_TITLES = {
 // Get current page name
 function getCurrentPage() {
     const path = window.location.pathname;
-    const page = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+    let page = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+    
+    // Handle root path case
+    if (path === '/' || path === '') {
+        page = 'index.html';
+    }
+    
     return page;
 }
 
@@ -48,7 +56,7 @@ function renderSidebar() {
             <div class="logo-text">HMS Portal</div>
         </div>
         <div class="menu">
-            <a class="menu-item ${currentPage === 'index.html' ? 'active' : ''}" href="index.html">
+            <a class="menu-item ${currentPage === 'index.html' || window.location.pathname === '/' ? 'active' : ''}" href="/">
                 <svg viewBox="0 0 24 24">${ICONS.dashboard}</svg>
                 <span>Dashboard</span>
             </a>
@@ -63,6 +71,10 @@ function renderSidebar() {
             <a class="menu-item ${currentPage === 'appointments.html' ? 'active' : ''}" href="appointments.html">
                 <svg viewBox="0 0 24 24">${ICONS.appointments}</svg>
                 <span>Appointments</span>
+            </a>
+            <a class="menu-item ${currentPage === 'vouchers.html' ? 'active' : ''}" href="vouchers.html">
+                <svg viewBox="0 0 24 24">${ICONS.voucher}</svg>
+                <span>Vouchers</span>
             </a>
             <a class="menu-item ${currentPage === 'reports.html' ? 'active' : ''}" href="reports.html">
                 <svg viewBox="0 0 24 24">${ICONS.reports}</svg>
