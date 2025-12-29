@@ -236,6 +236,12 @@ def serve_index(request: Request):
     frontend_path = Path(__file__).parent.parent.parent / "frontend" / "index.html"
     return FileResponse(str(frontend_path))
 
+@app.get("/test_navigation.html")
+def serve_test_navigation():
+    """Serve navigation test page (no auth required for testing)"""
+    frontend_path = Path(__file__).parent.parent.parent / "frontend" / "test_navigation.html"
+    return FileResponse(str(frontend_path))
+
 # --- Frontend Routes ---
 @app.get("/patients.html")
 def serve_patients(request: Request):
