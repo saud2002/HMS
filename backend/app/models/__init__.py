@@ -10,6 +10,7 @@ from .additional_expense import AdditionalExpense
 from .token_counter import TokenCounter
 from .system_log import SystemLog
 from .service import Service
+from .voucher import Voucher
 
 __all__ = [
     "AdminUser",
@@ -20,5 +21,6 @@ __all__ = [
     "AdditionalExpense",
     "TokenCounter",
     "SystemLog",
-    "Service"
+    "Service",
+    "Voucher"
 ]
