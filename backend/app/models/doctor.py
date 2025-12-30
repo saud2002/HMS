@@ -19,6 +19,7 @@ class Doctor(Base):
     doctor_name = Column(String(100), nullable=False)
     specialization = Column(String(100), nullable=False)
     consultation_charges = Column(Numeric(10, 2), nullable=False)
+    hospital_charges = Column(Numeric(10, 2), nullable=False, default=0.00)
     status = Column(String(20), default="Active", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -26,6 +27,7 @@ class Doctor(Base):
     # Constraints
     __table_args__ = (
         CheckConstraint('consultation_charges >= 0', name='check_charges_positive'),
+        CheckConstraint('hospital_charges >= 0', name='check_hospital_charges_positive'),
         Index('idx_specialization', 'specialization'),
         Index('idx_status', 'status'),
     )
@@ -49,6 +51,7 @@ class Doctor(Base):
             "doctor_name": self.doctor_name,
             "specialization": self.specialization,
             "consultation_charges": float(self.consultation_charges),
+            "hospital_charges": float(self.hospital_charges),
             "status": self.status.value,
             "created_at": self.created_at.isoformat()
         }

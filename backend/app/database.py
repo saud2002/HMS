@@ -59,6 +59,19 @@ def create_database_schema():
     # Create tables from models
     Base.metadata.create_all(bind=engine)
     
+    # Add hospital_charges column to doctors table if it doesn't exist
+    with engine.connect() as conn:
+        try:
+            # Check if hospital_charges column exists
+            result = conn.execute(text("SHOW COLUMNS FROM doctors LIKE 'hospital_charges'")).fetchone()
+            if not result:
+                print("🔧 Adding hospital_charges column to doctors table...")
+                conn.execute(text("ALTER TABLE doctors ADD COLUMN hospital_charges DECIMAL(10,2) NOT NULL DEFAULT 0.00"))
+                conn.commit()
+                print("✅ hospital_charges column added successfully")
+        except Exception as e:
+            print(f"⚠️ Error adding hospital_charges column: {e}")
+    
     # Create additional tables that are not in models
     with engine.connect() as conn:
         # Create doctor_schedules table

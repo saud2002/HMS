@@ -9,17 +9,12 @@ class AppointmentCreate(BaseModel):
     patient_id: int = Field(..., gt=0)
     doctor_id: str = Field(..., min_length=1, max_length=20)
     appointment_date: date
-    hospital_charges: float = Field(default=0, ge=0)
     
     @validator('appointment_date')
     def validate_appointment_date(cls, v):
         if v < date.today():
             raise ValueError('Appointment date cannot be in the past')
         return v
-    
-    @validator('hospital_charges')
-    def validate_hospital_charges(cls, v):
-        return round(v, 2)
 
 class AppointmentResponse(BaseModel):
     appointment_id: int
