@@ -11,17 +11,30 @@ from typing import Generator
 # Database Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:@localhost:3306/hms")
 
+# Determine database type
+is_sqlite = DATABASE_URL.startswith("sqlite")
+is_mysql = "mysql" in DATABASE_URL
+
 # Create engine with proper configuration
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,  # Set to True for SQL debugging
-    pool_pre_ping=True,  # Verify connections before use
-    pool_recycle=300,    # Recycle connections every 5 minutes
-    connect_args={
-        "charset": "utf8mb4",
-        "autocommit": False
-    }
-)
+if is_sqlite:
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+else:
+    # MySQL configuration
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,  # Set to True for SQL debugging
+        pool_pre_ping=True,  # Verify connections before use
+        pool_recycle=300,    # Recycle connections every 5 minutes
+        connect_args={
+            "charset": "utf8mb4",
+            "autocommit": False
+        } if is_mysql else {}
+    )
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -46,15 +59,16 @@ def create_database_schema():
     # Create tables from models
     Base.metadata.create_all(bind=engine)
     
-    # Execute additional SQL for views and procedures
-    with engine.connect() as conn:
-        # Create views
-        create_views(conn)
-        # Create stored procedures
-        create_stored_procedures(conn)
+    # Execute additional SQL for views and procedures (MySQL only)
+    if is_mysql:
+        with engine.connect() as conn:
+            # Create views
+            create_views(conn)
+            # Create stored procedures
+            create_stored_procedures(conn)
 
 def create_views(conn):
-    """Create database views for reporting"""
+    """Create database views for reporting (MySQL only)"""
     
     # Drop existing views if they exist
     views_to_drop = [
@@ -149,7 +163,7 @@ def create_views(conn):
     conn.commit()
 
 def create_stored_procedures(conn):
-    """Create stored procedures for business logic"""
+    """Create stored procedures for business logic (MySQL only)"""
     
     # Drop existing procedures
     procedures_to_drop = [

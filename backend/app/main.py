@@ -17,6 +17,7 @@ from .database import get_db, create_database_schema, test_connection
 from .config import settings
 from .models import *
 from .schemas import *
+from .schemas.bill import PaymentStatusUpdate
 from .models.voucher import Voucher, VoucherType, VoucherStatus
 from .schemas.voucher import VoucherCreate, VoucherUpdate, VoucherResponse, VoucherSummary, DoctorPaymentSummary
 
@@ -915,18 +916,27 @@ def get_bill_by_appointment(appointment_id: int, db: Session = Depends(get_db)):
     return get_bill(bill.bill_id, db)
 
 @app.patch("/api/bills/{bill_id}/payment-status")
-def update_payment_status(bill_id: int, payment_status: str, db: Session = Depends(get_db)):
-    valid_statuses = ["Pending", "Paid", "Partial"]
-    if payment_status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
-    
-    bill = db.query(Bill).filter(Bill.bill_id == bill_id).first()
-    if not bill:
-        raise HTTPException(status_code=404, detail="Bill not found")
-    
-    bill.payment_status = payment_status
-    db.commit()
-    return {"message": f"Payment status updated to {payment_status}"}
+def update_payment_status(bill_id: int, status_update: PaymentStatusUpdate, db: Session = Depends(get_db)):
+    try:
+        print(f"🔍 Received payment status update request: bill_id={bill_id}, status_update={status_update}")
+        payment_status = status_update.payment_status
+        print(f"🔍 Extracted payment_status: {payment_status}")
+        
+        bill = db.query(Bill).filter(Bill.bill_id == bill_id).first()
+        if not bill:
+            print(f"❌ Bill not found: {bill_id}")
+            raise HTTPException(status_code=404, detail="Bill not found")
+        
+        print(f"🔍 Found bill: {bill.bill_id}, current status: {bill.payment_status}")
+        bill.payment_status = payment_status
+        db.commit()
+        print(f"✅ Payment status updated successfully to: {payment_status}")
+        return {"message": f"Payment status updated to {payment_status}"}
+        
+    except Exception as e:
+        print(f"❌ Error in update_payment_status: {str(e)}")
+        print(f"❌ Error type: {type(e)}")
+        raise
 
 # =====================================================
 # REPORTS ENDPOINTS
