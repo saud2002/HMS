@@ -15,8 +15,100 @@ const ICONS = {
     addPatient: '<path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>',
     money: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>',
     voucher: '<path d="M4 4h16v2H4zm0 4h16v2H4zm0 4h16v2H4zm0 4h10v2H4z"/>',
-    check: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>'
+    check: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>',
+    close: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>'
 };
+
+// ============================================
+// UNIFIED MODAL MANAGEMENT SYSTEM
+// ============================================
+
+const ModalManager = {
+    // Open modal with body scroll lock
+    open: function(modalId, size = 'medium') {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        
+        // Add body scroll lock
+        document.body.classList.add('modal-open');
+        
+        // Set modal size
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.className = `modal-content modal-${size}`;
+        }
+        
+        // Show modal
+        modal.classList.add('active');
+        
+        // Focus management
+        const firstInput = modal.querySelector('input, select, textarea, button');
+        if (firstInput) {
+            setTimeout(() => firstInput.focus(), 100);
+        }
+    },
+    
+    // Close specific modal
+    close: function(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        
+        modal.classList.remove('active');
+        
+        // Remove body scroll lock if no other modals are open
+        if (!document.querySelector('.modal.active')) {
+            document.body.classList.remove('modal-open');
+        }
+    },
+    
+    // Close all modals
+    closeAll: function() {
+        document.querySelectorAll('.modal.active').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        document.body.classList.remove('modal-open');
+    },
+    
+    // Create standardized close button
+    createCloseButton: function(modalId) {
+        return `
+            <button class="modal-close" onclick="ModalManager.close('${modalId}')" aria-label="Close modal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    ${ICONS.close}
+                </svg>
+            </button>
+        `;
+    }
+};
+
+// Global event listeners for modal management
+document.addEventListener('DOMContentLoaded', function() {
+    // Close modal on backdrop click
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            ModalManager.close(e.target.id);
+        }
+    });
+    
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            ModalManager.closeAll();
+        }
+    });
+    
+    // Standardize existing close buttons
+    document.querySelectorAll('.modal').forEach(modal => {
+        const closeBtn = modal.querySelector('.close-btn, .modal-close');
+        if (closeBtn && !closeBtn.innerHTML.includes('svg')) {
+            closeBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    ${ICONS.close}
+                </svg>
+            `;
+        }
+    });
+});
 
 // Page titles
 const PAGE_TITLES = {

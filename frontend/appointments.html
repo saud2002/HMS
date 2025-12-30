@@ -200,70 +200,83 @@
 
     <!-- Patient Modal -->
     <div class="modal" id="patientModal">
-        <div class="modal-content">
+        <div class="modal-content modal-medium">
             <div class="modal-header">
                 <h2>Add New Patient</h2>
-                <button class="modal-close" onclick="closePatientModal()">×</button>
+                <button class="modal-close" onclick="ModalManager.close('patientModal')" aria-label="Close modal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
-            <form id="patientForm" onsubmit="savePatientFromAppointment(event)">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Patient Name *</label>
-                        <input type="text" id="patientName" required>
+            <div class="modal-body">
+                <form id="patientForm" onsubmit="savePatientFromAppointment(event)">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Patient Name *</label>
+                            <input type="text" id="patientName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Age *</label>
+                            <input type="number" id="patientAge" min="1" max="150" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number *</label>
+                            <input type="tel" id="patientPhone" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Gender *</label>
+                            <select id="patientGender" required>
+                                <option value="">-- Select Gender --</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>NIC Number *</label>
+                            <input type="text" id="patientNIC" required>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Age *</label>
-                        <input type="number" id="patientAge" min="1" max="150" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Phone Number *</label>
-                        <input type="tel" id="patientPhone" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Gender *</label>
-                        <select id="patientGender" required>
-                            <option value="">-- Select Gender --</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>NIC Number *</label>
-                        <input type="text" id="patientNIC" required>
-                    </div>
-                </div>
-                <div style="margin-top: 20px; display: flex; gap: 10px;">
-                    <button type="submit" class="btn btn-success">Save & Select Patient</button>
-                    <button type="button" class="btn btn-secondary" onclick="closePatientModal()">Cancel</button>
-                </div>
-            </form>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="ModalManager.close('patientModal')">Cancel</button>
+                <button type="submit" form="patientForm" class="btn btn-success">Save & Select Patient</button>
+            </div>
         </div>
     </div>
 
     <!-- Bill Modal -->
     <div class="modal" id="billModal">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content modal-medium">
             <div class="modal-header no-print">
                 <h2>Invoice / Bill</h2>
-                <button class="modal-close" onclick="closeBillModal()">×</button>
+                <button class="modal-close" onclick="ModalManager.close('billModal')" aria-label="Close modal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
-            <div id="billContent"></div>
-            <div id="paymentStatusSection" class="no-print" style="margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <h4 style="margin: 0 0 10px 0; color: #374151;">Payment Status</h4>
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <span id="currentPaymentStatus" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;"></span>
-                    <select id="paymentStatusSelect" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
-                        <option value="Pending">Pending</option>
-                        <option value="Paid">Paid</option>
-                        
-                    </select>
-                    <button class="btn btn-sm btn-success" onclick="updatePaymentStatus()" id="updatePaymentBtn">Update Status</button>
+            <div class="modal-body">
+                <div id="billContent"></div>
+                <div id="paymentStatusSection" class="no-print" style="margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 10px 0; color: #374151;">Payment Status</h4>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <span id="currentPaymentStatus" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;"></span>
+                        <select id="paymentStatusSelect" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                            <option value="Pending">Pending</option>
+                            <option value="Paid">Paid</option>
+                        </select>
+                        <button class="btn btn-sm btn-success" onclick="updatePaymentStatus()" id="updatePaymentBtn">Update Status</button>
+                    </div>
                 </div>
             </div>
-            <div style="margin-top: 20px; display: flex; gap: 10px;" class="no-print">
+            <div class="modal-footer no-print">
+                <button class="btn btn-secondary" onclick="ModalManager.close('billModal')">Close</button>
                 <button class="btn btn-primary" onclick="window.print()">🖨️ Print Bill</button>
-                <button class="btn btn-secondary" onclick="closeBillModal()">Close</button>
             </div>
         </div>
     </div>
@@ -637,7 +650,7 @@
             updatePaymentStatusDisplay(appt);
             
             console.log('🔍 Adding active class to modal...');
-            billModal.classList.add('active');
+            ModalManager.open('billModal', 'medium');
             console.log('🔍 Bill modal should now be visible');
         }
 
@@ -783,7 +796,7 @@
 
         // Close bill modal
         function closeBillModal() {
-            document.getElementById('billModal').classList.remove('active');
+            ModalManager.close('billModal');
         }
 
         // View appointment bill
@@ -950,12 +963,12 @@
 
         // Patient Modal Functions
         function openAddPatientModal() {
-            document.getElementById('patientModal').classList.add('active');
+            ModalManager.open('patientModal', 'medium');
             document.getElementById('patientForm').reset();
         }
 
         function closePatientModal() {
-            document.getElementById('patientModal').classList.remove('active');
+            ModalManager.close('patientModal');
         }
 
         // Save patient from appointment page
@@ -974,7 +987,7 @@
             try {
                 const newPatient = await API.Patients.create(data);
                 showToast('Patient registered successfully!', 'success');
-                closePatientModal();
+                ModalManager.close('patientModal');
                 
                 // Refresh patient dropdown and auto-select the new patient
                 await populateDropdowns();
