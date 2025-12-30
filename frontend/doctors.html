@@ -46,6 +46,7 @@
                             <th>Name</th>
                             <th>Specialization</th>
                             <th>Consultation Fee</th>
+                            <th>Hospital Charges</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -80,7 +81,11 @@
                     </div>
                     <div class="form-group">
                         <label>Consultation Fee ($) *</label>
-                        <input type="number" id="doctorFee" min="0" required>
+                        <input type="number" id="doctorFee" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Hospital Charges ($) *</label>
+                        <input type="number" id="doctorHospitalCharges" min="0" step="0.01" required>
                     </div>
                     <div class="form-group">
                         <label>Status</label>
@@ -111,6 +116,7 @@
                     <td>${d.doctor_name}</td>
                     <td>${d.specialization}</td>
                     <td>$${d.consultation_charges.toLocaleString()}</td>
+                    <td>$${d.hospital_charges.toLocaleString()}</td>
                     <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
                     <td>
                         <div class="action-buttons">
@@ -136,10 +142,10 @@
                         </div>
                     </td>
                 </tr>
-            `).join('') || '<tr><td colspan="6" style="text-align:center;">No doctors found</td></tr>';
+            `).join('') || '<tr><td colspan="7" style="text-align:center;">No doctors found</td></tr>';
             } catch (error) {
                 console.error('Error loading doctors:', error);
-                document.getElementById('doctorsTable').innerHTML = '<tr><td colspan="6" style="text-align:center; color: red;">Error loading doctors</td></tr>';
+                document.getElementById('doctorsTable').innerHTML = '<tr><td colspan="7" style="text-align:center; color: red;">Error loading doctors</td></tr>';
             }
         }
 
@@ -239,6 +245,7 @@
                         document.getElementById('doctorName').value = d.doctor_name;
                         document.getElementById('doctorSpecialization').value = d.specialization;
                         document.getElementById('doctorFee').value = d.consultation_charges;
+                        document.getElementById('doctorHospitalCharges').value = d.hospital_charges;
                         document.getElementById('doctorStatus').value = d.status;
                     }
                 } catch (error) {
@@ -262,7 +269,8 @@
                 doctor_id: document.getElementById('doctorId').value,
                 doctor_name: document.getElementById('doctorName').value,
                 specialization: document.getElementById('doctorSpecialization').value,
-                consultation_charges: parseFloat(document.getElementById('doctorFee').value)
+                consultation_charges: parseFloat(document.getElementById('doctorFee').value),
+                hospital_charges: parseFloat(document.getElementById('doctorHospitalCharges').value)
             };
 
             try {

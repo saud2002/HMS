@@ -99,12 +99,19 @@ async function loadVouchers() {
 function displayVouchers(vouchers) {
     const tbody = document.getElementById('vouchersTableBody');
     
+    console.log('displayVouchers called with:', vouchers.length, 'vouchers');
+    
     if (vouchers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center">No vouchers found</td></tr>';
         return;
     }
     
-    tbody.innerHTML = vouchers.map(voucher => `
+    tbody.innerHTML = vouchers.map((voucher, index) => {
+        console.log(`Processing voucher ${index + 1}:`, voucher.voucher_number, 'Status:', voucher.status);
+        const actionButtons = getActionButton(voucher);
+        console.log(`Action buttons for ${voucher.voucher_number}:`, actionButtons);
+        
+        return `
         <tr>
             <td>${voucher.voucher_number}</td>
             <td>${formatVoucherType(voucher.voucher_type)}</td>
@@ -114,12 +121,16 @@ function displayVouchers(vouchers) {
             <td><span class="badge ${getVoucherTypeClass(voucher.status)}">${formatStatus(voucher.status)}</span></td>
             <td>
                 <div class="btn-group">
-                    <button class="btn btn-sm btn-primary" onclick="viewVoucher(${voucher.voucher_id})">View</button>
-                    ${getActionButton(voucher)}
+                    <button class="btn btn-sm btn-primary" onclick="viewVoucher(${voucher.voucher_id})" title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ${actionButtons}
                 </div>
             </td>
-        </tr>
-    `).join('');
+        </tr>`;
+    }).join('');
+    
+    console.log('Table HTML updated');
 }
 
 // Format voucher type for display
@@ -158,19 +169,64 @@ function getVoucherTypeClass(status) {
 
 // Get action button based on voucher status
 function getActionButton(voucher) {
+    console.log(`getActionButton called for voucher ${voucher.voucher_number} with status: ${voucher.status}`);
+    
+    let buttons = '';
+    
     switch (voucher.status) {
         case 'DRAFT':
-            return `<button class="btn btn-sm btn-warning" onclick="submitForApproval(${voucher.voucher_id})">Submit</button>`;
-        case 'PENDING_APPROVAL':
-            return `
-                <button class="btn btn-sm btn-success" onclick="approveVoucher(${voucher.voucher_id})">Approve</button>
-                <button class="btn btn-sm btn-danger" onclick="rejectVoucher(${voucher.voucher_id})">Reject</button>
+            buttons = `
+                <button class="btn btn-sm btn-warning" onclick="submitForApproval(${voucher.voucher_id})" title="Submit for Approval">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteVoucher(${voucher.voucher_id}, '${voucher.voucher_number}')" title="Delete Voucher">
+                    <i class="fas fa-trash"></i>
+                </button>
             `;
+            console.log('Generated DRAFT buttons');
+            break;
+        case 'PENDING_APPROVAL':
+            buttons = `
+                <button class="btn btn-sm btn-success" onclick="approveVoucher(${voucher.voucher_id})" title="Approve">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="rejectVoucher(${voucher.voucher_id})" title="Reject">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            console.log('Generated PENDING_APPROVAL buttons');
+            break;
         case 'APPROVED':
-            return `<button class="btn btn-sm btn-info" onclick="markAsPaid(${voucher.voucher_id})">Mark Paid</button>`;
+            buttons = `
+                <button class="btn btn-sm btn-info" onclick="markAsPaid(${voucher.voucher_id})" title="Mark as Paid">
+                    <i class="fas fa-money-bill-wave"></i>
+                </button>
+            `;
+            console.log('Generated APPROVED buttons');
+            break;
+        case 'PAID':
+            buttons = `
+                <button class="btn btn-sm btn-danger" onclick="deleteVoucher(${voucher.voucher_id}, '${voucher.voucher_number}')" title="Delete Paid Voucher">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            console.log('Generated PAID buttons');
+            break;
+        case 'REJECTED':
+            buttons = `
+                <button class="btn btn-sm btn-danger" onclick="deleteVoucher(${voucher.voucher_id}, '${voucher.voucher_number}')" title="Delete Voucher">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            console.log('Generated REJECTED buttons');
+            break;
         default:
-            return '';
+            buttons = '';
+            console.log('No buttons for status:', voucher.status);
     }
+    
+    console.log(`Final buttons HTML:`, buttons);
+    return buttons;
 }
 
 // Show create voucher modal
@@ -402,6 +458,42 @@ async function markAsPaid(voucherId) {
     }
 }
 
+// Delete voucher
+async function deleteVoucher(voucherId, voucherNumber) {
+    // Get voucher status for appropriate confirmation message
+    const voucher = currentVouchers.find(v => v.voucher_id === voucherId);
+    const status = voucher ? voucher.status : 'Unknown';
+    
+    let confirmMessage = `Are you sure you want to delete voucher ${voucherNumber}?\n\nThis action cannot be undone.`;
+    
+    if (status === 'PAID') {
+        confirmMessage = `⚠️ WARNING: You are about to delete a PAID voucher!\n\nVoucher: ${voucherNumber}\nStatus: PAID\n\nThis will permanently remove the payment record from the system.\nThis action cannot be undone.\n\nAre you sure you want to proceed?`;
+    }
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/vouchers/${voucherId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(result.message, 'success');
+            loadVouchers();
+            loadVoucherSummary();
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete voucher');
+        }
+    } catch (error) {
+        console.error('Error deleting voucher:', error);
+        showAlert(error.message, 'danger');
+    }
+}
+
 // Utility functions
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
@@ -471,4 +563,138 @@ function showAlert(message, type) {
             setTimeout(() => alertDiv.remove(), 300);
         }
     }, 5000);
+}
+
+// Test function to create a draft voucher
+async function createTestDraftVoucher() {
+    console.log('Creating test draft voucher...');
+    
+    try {
+        const voucherData = {
+            voucher_type: 'HOSPITAL_EXPENSE',
+            amount: 1000.00,
+            voucher_date: new Date().toISOString().split('T')[0],
+            description: 'Test draft voucher for delete functionality'
+        };
+        
+        console.log('Sending voucher data:', voucherData);
+        
+        const response = await fetch('/api/vouchers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(voucherData)
+        });
+        
+        console.log('Response status:', response.status);
+        
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        if (response.ok) {
+            const result = JSON.parse(responseText);
+            console.log('Voucher created successfully:', result);
+            showAlert(`Test draft voucher ${result.voucher_number} created successfully!`, 'success');
+            
+            // Reload the vouchers table
+            await loadVouchers();
+            await loadVoucherSummary();
+        } else {
+            let errorMessage = 'Failed to create test voucher';
+            try {
+                const error = JSON.parse(responseText);
+                errorMessage = error.detail || errorMessage;
+            } catch (e) {
+                errorMessage = responseText || errorMessage;
+            }
+            throw new Error(errorMessage);
+        }
+    } catch (error) {
+        console.error('Error creating test voucher:', error);
+        showAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+// Quick test function to create a draft voucher using the modal
+function createQuickTestVoucher() {
+    // Open the modal
+    showCreateVoucherModal('HOSPITAL_EXPENSE');
+    
+    // Pre-fill the form
+    setTimeout(() => {
+        document.getElementById('amount').value = '1000';
+        document.getElementById('description').value = 'Test draft voucher for delete functionality';
+        
+        // Show alert to user
+        showAlert('Form pre-filled! Click "Create Voucher" to create a test draft voucher.', 'info');
+    }, 100);
+}
+// Test function to check if buttons are working
+function testDeleteButtons() {
+    console.log('=== TESTING DELETE BUTTONS ===');
+    console.log('Current vouchers:', currentVouchers);
+    
+    if (currentVouchers.length === 0) {
+        alert('No vouchers found! Create a voucher first using "Quick Test" button.');
+        return;
+    }
+    
+    // Test each voucher's button generation
+    currentVouchers.forEach((voucher, index) => {
+        console.log(`\n--- Voucher ${index + 1} ---`);
+        console.log('Voucher:', voucher.voucher_number);
+        console.log('Status:', voucher.status);
+        
+        const buttons = getActionButton(voucher);
+        console.log('Generated buttons:', buttons);
+        
+        // Check if delete button exists
+        const hasDeleteButton = buttons.includes('deleteVoucher');
+        console.log('Has delete button:', hasDeleteButton);
+    });
+    
+    // Show alert with summary
+    const draftCount = currentVouchers.filter(v => v.status === 'DRAFT').length;
+    const paidCount = currentVouchers.filter(v => v.status === 'PAID').length;
+    const rejectedCount = currentVouchers.filter(v => v.status === 'REJECTED').length;
+    
+    alert(`Button Test Results:
+    
+Total Vouchers: ${currentVouchers.length}
+- DRAFT: ${draftCount} (should have delete button)
+- PAID: ${paidCount} (should have delete button)  
+- REJECTED: ${rejectedCount} (should have delete button)
+
+Check browser console for detailed logs.`);
+}
+// Add test row to table for debugging
+function addTestRowToTable() {
+    const tbody = document.getElementById('vouchersTableBody');
+    const testRow = `
+        <tr style="background-color: #fff3cd; border: 2px solid #ffc107;">
+            <td>TEST-001</td>
+            <td>Test Voucher</td>
+            <td>Test Doctor</td>
+            <td>LKR 1,000</td>
+            <td>2024-12-30</td>
+            <td><span class="badge bg-secondary">DRAFT</span></td>
+            <td>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-primary" title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" title="Submit for Approval">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="alert('Delete button works!')" title="Delete Voucher">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    tbody.innerHTML = testRow + tbody.innerHTML;
+    console.log('Test row added to table');
 }
