@@ -14,10 +14,19 @@ async function apiRequest(endpoint, options = {}) {
     if (token) config.headers['Authorization'] = `Bearer ${token}`;
     
     const response = await fetch(url, config);
+    
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Error occurred' }));
-        throw new Error(error.detail || `HTTP ${response.status}`);
+        let errorData;
+        try {
+            errorData = await response.json();
+        } catch (parseError) {
+            errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        
+        const errorMessage = errorData.detail || errorData.message || `HTTP ${response.status}`;
+        throw new Error(errorMessage);
     }
+    
     return response.json();
 }
 
@@ -43,7 +52,8 @@ const Doctors = {
     getSpecializations: () => apiRequest('/doctors/specializations'),
     create: (data) => apiRequest('/doctors', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiRequest(`/doctors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    deactivate: (id) => apiRequest(`/doctors/${id}`, { method: 'DELETE' })
+    deactivate: (id) => apiRequest(`/doctors/${id}`, { method: 'DELETE' }),
+    delete: (id) => apiRequest(`/doctors/${id}/delete`, { method: 'DELETE' })
 };
 
 // ==================== APPOINTMENTS ====================
@@ -75,7 +85,12 @@ const Bills = {
     },
     getById: (id) => apiRequest(`/bills/${id}`),
     getByAppointment: (appointmentId) => apiRequest(`/bills/appointment/${appointmentId}`),
-    updatePaymentStatus: (id, status) => apiRequest(`/bills/${id}/payment-status?payment_status=${status}`, { method: 'PATCH' })
+    updatePaymentStatus: (id, status) => {
+        return apiRequest(`/bills/${id}/payment-status`, { 
+            method: 'PATCH',
+            body: JSON.stringify({ payment_status: status })
+        });
+    }
 };
 
 // ==================== REPORTS ====================

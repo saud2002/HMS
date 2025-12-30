@@ -59,6 +59,15 @@
                         <label>Consultation Fee</label>
                         <input type="text" id="appointmentDoctorFee" readonly>
                     </div>
+                    <div class="form-group">
+                        <label>Appointment Status *</label>
+                        <select id="appointmentStatus">
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                            <option value="No Show">No Show</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="card-title" style="margin-top: 20px;">💰 Charges</div>
@@ -80,10 +89,41 @@
             </div>
         </div>
 
+        
         <!-- Today's Appointments Tab -->
         <div id="listTab" style="display: none;">
             <div class="card">
                 <div class="card-title">📋 Today's Appointments</div>
+                
+                <!-- Today's Appointments Filters -->
+                <div class="card" style="margin-bottom: 20px; background: #f8fafc;">
+                    <div class="card-title" style="font-size: 16px;">🔍 Filter Today's Appointments</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Doctor</label>
+                            <select id="todayDoctorFilter" onchange="filterTodayAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                                <option value="">All Doctors</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Status</label>
+                            <select id="todayStatusFilter" onchange="filterTodayAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                                <option value="">All Status</option>
+                                <option value="Scheduled">Scheduled</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Patient Name</label>
+                            <input type="text" id="todayPatientFilter" placeholder="Search patient..." onkeyup="filterTodayAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div style="display: flex; align-items: end;">
+                            <button class="btn btn-secondary" onclick="clearTodayFilters()" style="padding: 8px 16px;">Clear Filters</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div style="overflow-x: auto;">
                     <table>
                         <thead>
@@ -99,6 +139,44 @@
         <div id="allTab" style="display: none;">
             <div class="card">
                 <div class="card-title">📋 All Appointments</div>
+                
+                <!-- All Appointments Filters -->
+                <div class="card" style="margin-bottom: 20px; background: #f8fafc;">
+                    <div class="card-title" style="font-size: 16px;">🔍 Filter All Appointments</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Doctor</label>
+                            <select id="allDoctorFilter" onchange="filterAllAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                                <option value="">All Doctors</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Status</label>
+                            <select id="allStatusFilter" onchange="filterAllAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                                <option value="">All Status</option>
+                                <option value="Scheduled">Scheduled</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Patient Name</label>
+                            <input type="text" id="allPatientFilter" placeholder="Search patient..." onkeyup="filterAllAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Date From</label>
+                            <input type="date" id="allDateFromFilter" onchange="filterAllAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #334155;">Date To</label>
+                            <input type="date" id="allDateToFilter" onchange="filterAllAppointments()" style="width: 100%; padding: 8px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div style="display: flex; align-items: end;">
+                            <button class="btn btn-secondary" onclick="clearAllFilters()" style="padding: 8px 16px;">Clear Filters</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div style="overflow-x: auto;">
                     <table>
                         <thead>
@@ -162,6 +240,18 @@
                 <button class="modal-close" onclick="closeBillModal()">×</button>
             </div>
             <div id="billContent"></div>
+            <div id="paymentStatusSection" class="no-print" style="margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <h4 style="margin: 0 0 10px 0; color: #374151;">Payment Status</h4>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span id="currentPaymentStatus" style="padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;"></span>
+                    <select id="paymentStatusSelect" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Partial">Partial</option>
+                    </select>
+                    <button class="btn btn-sm btn-success" onclick="updatePaymentStatus()" id="updatePaymentBtn">Update Status</button>
+                </div>
+            </div>
             <div style="margin-top: 20px; display: flex; gap: 10px;" class="no-print">
                 <button class="btn btn-primary" onclick="window.print()">🖨️ Print Bill</button>
                 <button class="btn btn-secondary" onclick="closeBillModal()">Close</button>
@@ -173,6 +263,32 @@
     <script src="/static/js/common.js"></script>
     <script src="/static/js/api.js"></script>
     <script>
+        // Global variables to store appointment data
+        let todayAppointments = [];
+        let allAppointments = [];
+
+        // Format date helper function
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString();
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            // Simple toast implementation
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed; top: 20px; right: 20px; z-index: 10000;
+                padding: 12px 20px; border-radius: 6px; color: white;
+                background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
         // Tab switching
         function showTab(tab) {
             document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -277,6 +393,23 @@
             }
         }
 
+        // Format token number with larger last 3 digits
+        function formatTokenNumber(tokenNumber) {
+            if (!tokenNumber) return 'N/A';
+            
+            // Split token number by the last dash to get the last 3 digits
+            const parts = tokenNumber.split('-');
+            if (parts.length >= 3) {
+                const lastPart = parts[parts.length - 1]; // Get last part (e.g., "001")
+                const restParts = parts.slice(0, -1).join('-'); // Get everything before last part
+                
+                return `${restParts}-<span style="font-size: 1.5em; font-weight: bold; color: #2563eb;">${lastPart}</span>`;
+            }
+            
+            // Fallback if token format is different
+            return tokenNumber;
+        }
+
         // Create appointment
         async function createAppointment() {
             console.log('🔍 Create appointment button clicked');
@@ -297,12 +430,16 @@
             try {
                 console.log('🔍 Creating appointment...');
                 
+                // Get appointment status
+                const appointmentStatus = document.getElementById('appointmentStatus').value;
+                
                 // Create appointment
                 const appointmentData = {
                     patient_id: patientId,
                     doctor_id: doctorId,
                     appointment_date: new Date().toISOString().split('T')[0], // Today's date
-                    hospital_charges: hospitalCharges
+                    hospital_charges: hospitalCharges,
+                    status: appointmentStatus
                 };
 
                 console.log('🔍 Appointment data:', appointmentData);
@@ -398,6 +535,7 @@
                 // Reset form
                 document.getElementById('appointmentPatient').value = '';
                 document.getElementById('appointmentDoctor').value = '';
+                document.getElementById('appointmentStatus').value = 'Scheduled'; // Reset to default
                 await fillPatientDetails();
                 await fillDoctorDetails();
                 document.querySelectorAll('#servicesCheckboxGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
@@ -408,28 +546,6 @@
                 showToast(error.message || 'Failed to create appointment', 'error');
             }
         }
-
-        // Show bill
-        function showBill(appt) {
-            console.log('🔍 showBill called with:', appt);
-            const billContent = document.getElementById('billContent');
-            const billModal = document.getElementById('billModal');
-            
-            if (!billContent) {
-                console.error('❌ billContent element not found');
-                return;
-            }
-            if (!billModal) {
-                console.error('❌ billModal element not found');
-                return;
-            }
-            
-            console.log('🔍 Generating bill HTML...');
-            billContent.innerHTML = generateBillHTML(appt);
-            console.log('🔍 Adding active class to modal...');
-            billModal.classList.add('active');
-            console.log('🔍 Bill modal should now be visible');
-        }            
 
         // Generate bill HTML
         function generateBillHTML(appt) {
@@ -444,7 +560,7 @@
                 </div>
                 
                 <div style="margin-bottom: 15px;">
-                    <strong>Token Number:</strong> ${appt.token_number}<br>
+                    <strong>Token Number:</strong> ${formatTokenNumber(appt.token_number)}<br>
                     <strong>Patient:</strong> ${appt.patient ? appt.patient.patient_name : 'N/A'}<br>
                     <strong>Age:</strong> ${appt.patient ? appt.patient.age : 'N/A'}<br>
                     <strong>NIC:</strong> ${appt.patient ? appt.patient.nic : 'N/A'}<br>
@@ -466,21 +582,21 @@
                     <tbody>
                         <tr>
                             <td style="border: 1px solid #ddd; padding: 8px;">Doctor Consultation</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${parseFloat(appt.doctor_charges).toFixed(2)}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${parseFloat(appt.doctor_charges).toFixed(2)}</td>
                         </tr>
                         <tr>
                             <td style="border: 1px solid #ddd; padding: 8px;">Hospital Charges</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${parseFloat(appt.hospital_charges).toFixed(2)}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${parseFloat(appt.hospital_charges).toFixed(2)}</td>
                         </tr>
                         ${appt.additional_expenses ? appt.additional_expenses.map(exp => `
                             <tr>
                                 <td style="border: 1px solid #ddd; padding: 8px;">${exp.service_description}</td>
-                                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${parseFloat(exp.amount).toFixed(2)}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${parseFloat(exp.amount).toFixed(2)}</td>
                             </tr>
                         `).join('') : ''}
                         <tr style="background: #f0f0f0; font-weight: bold;">
                             <td style="border: 1px solid #ddd; padding: 8px;">Total Amount</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">$${appt.bill ? parseFloat(appt.bill.total_amount).toFixed(2) : (parseFloat(appt.doctor_charges) + parseFloat(appt.hospital_charges)).toFixed(2)}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${appt.bill ? parseFloat(appt.bill.total_amount).toFixed(2) : (parseFloat(appt.doctor_charges) + parseFloat(appt.hospital_charges)).toFixed(2)}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -489,6 +605,172 @@
                     Thank you for choosing our hospital!
                 </div>
             `;
+        }
+
+        // Show bill
+        function showBill(appt) {
+            console.log('🔍 showBill called with:', appt);
+            const billContent = document.getElementById('billContent');
+            const billModal = document.getElementById('billModal');
+            
+            if (!billContent) {
+                console.error('❌ billContent element not found');
+                return;
+            }
+            if (!billModal) {
+                console.error('❌ billModal element not found');
+                return;
+            }
+            
+            console.log('🔍 Generating bill HTML...');
+            billContent.innerHTML = generateBillHTML(appt);
+            
+            // Update payment status section
+            updatePaymentStatusDisplay(appt);
+            
+            console.log('🔍 Adding active class to modal...');
+            billModal.classList.add('active');
+            console.log('🔍 Bill modal should now be visible');
+        }
+
+        // Update payment status display
+        function updatePaymentStatusDisplay(appt) {
+            const currentStatusSpan = document.getElementById('currentPaymentStatus');
+            const statusSelect = document.getElementById('paymentStatusSelect');
+            const updateBtn = document.getElementById('updatePaymentBtn');
+            
+            // Check if elements exist
+            if (!currentStatusSpan || !statusSelect || !updateBtn) {
+                console.error('Payment status elements not found');
+                return;
+            }
+            
+            if (!appt || !appt.bill) {
+                // No bill exists yet
+                currentStatusSpan.textContent = 'No Bill Generated';
+                currentStatusSpan.style.background = '#f3f4f6';
+                currentStatusSpan.style.color = '#6b7280';
+                statusSelect.disabled = true;
+                updateBtn.disabled = true;
+                updateBtn.removeAttribute('data-bill-id');
+                return;
+            }
+            
+            const status = appt.bill.payment_status || 'Pending';
+            const billId = appt.bill.bill_id;
+            
+            // Update display
+            currentStatusSpan.textContent = status;
+            
+            // Style based on status
+            switch (status) {
+                case 'Paid':
+                    currentStatusSpan.style.background = '#dcfce7';
+                    currentStatusSpan.style.color = '#166534';
+                    break;
+                case 'Partial':
+                    currentStatusSpan.style.background = '#fef3c7';
+                    currentStatusSpan.style.color = '#92400e';
+                    break;
+                default: // Pending
+                    currentStatusSpan.style.background = '#fef2f2';
+                    currentStatusSpan.style.color = '#dc2626';
+            }
+            
+            // Enable controls and set values
+            statusSelect.value = status;
+            statusSelect.disabled = false;
+            updateBtn.disabled = false;
+            updateBtn.setAttribute('data-bill-id', billId);
+        }
+
+        // Update payment status
+        async function updatePaymentStatus() {
+            const updateBtn = document.getElementById('updatePaymentBtn');
+            const statusSelect = document.getElementById('paymentStatusSelect');
+            
+            if (!updateBtn || !statusSelect) {
+                showToast('Payment status elements not found', 'error');
+                return;
+            }
+            
+            const billId = updateBtn.getAttribute('data-bill-id');
+            const newStatus = statusSelect.value;
+            
+            if (!billId) {
+                showToast('No bill ID found', 'error');
+                return;
+            }
+            
+            if (!newStatus) {
+                showToast('Please select a payment status', 'error');
+                return;
+            }
+            
+            // Show loading state
+            const originalText = updateBtn.textContent;
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Updating...';
+            
+            try {
+                // Make API call
+                const response = await fetch(`/api/bills/${billId}/payment-status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    },
+                    body: JSON.stringify({
+                        payment_status: newStatus
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Update failed' }));
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                // Update the display
+                const currentStatusSpan = document.getElementById('currentPaymentStatus');
+                if (currentStatusSpan) {
+                    currentStatusSpan.textContent = newStatus;
+                    
+                    // Update styling
+                    switch (newStatus) {
+                        case 'Paid':
+                            currentStatusSpan.style.background = '#dcfce7';
+                            currentStatusSpan.style.color = '#166534';
+                            break;
+                        case 'Partial':
+                            currentStatusSpan.style.background = '#fef3c7';
+                            currentStatusSpan.style.color = '#92400e';
+                            break;
+                        default: // Pending
+                            currentStatusSpan.style.background = '#fef2f2';
+                            currentStatusSpan.style.color = '#dc2626';
+                    }
+                }
+                
+                showToast(`Payment status updated to ${newStatus}`, 'success');
+                
+                // Refresh the appointments list
+                if (typeof loadTodayAppointments === 'function') {
+                    loadTodayAppointments();
+                }
+                if (typeof loadAllAppointments === 'function') {
+                    loadAllAppointments();
+                }
+                
+            } catch (error) {
+                console.error('Error updating payment status:', error);
+                showToast(`Failed to update payment status: ${error.message}`, 'error');
+            } finally {
+                // Reset button state
+                updateBtn.disabled = false;
+                updateBtn.textContent = originalText;
+            }
         }
 
         // Close bill modal
@@ -525,37 +807,137 @@
                 const today = await API.Appointments.getToday();
                 const all = await API.Appointments.getAll();
 
-                document.getElementById('todayAppointmentsTable').innerHTML = today.map(a => `
-                    <tr>
-                        <td><strong>${a.token_number}</strong></td>
-                        <td>${a.patient_name || 'N/A'}</td>
-                        <td>${a.doctor_name || 'N/A'}</td>
-                        <td>${new Date(a.created_at).toLocaleTimeString()}</td>
-                        <td>$${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
-                        <td>
-                            <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
-                            <button class="btn btn-sm btn-secondary" onclick="updateAppointmentStatus(${a.appointment_id}, 'Completed')">Complete</button>
-                        </td>
-                    </tr>
-                `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments today</td></tr>';
+                // Store data globally for filtering
+                todayAppointments = today;
+                allAppointments = all;
 
-                document.getElementById('allAppointmentsTable').innerHTML = all.slice().reverse().map(a => `
-                    <tr>
-                        <td><strong>${a.token_number}</strong></td>
-                        <td>${a.patient_name || 'N/A'}</td>
-                        <td>${a.doctor_name || 'N/A'}</td>
-                        <td>${formatDate(a.appointment_date)}</td>
-                        <td>$${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
-                        <td>
-                            <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
-                            <span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span>
-                        </td>
-                    </tr>
-                `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments found</td></tr>';
+                // Populate filter dropdowns with actual appointment data
+                populateFilterDropdowns();
+
+                // Display appointments
+                displayTodayAppointments(todayAppointments);
+                displayAllAppointments(allAppointments);
             } catch (error) {
                 console.error('Error loading appointments:', error);
                 showToast('Error loading appointments', 'error');
             }
+        }
+
+        // Populate filter dropdowns with doctors
+        function populateFilterDropdowns() {
+            const doctors = [...new Set([...todayAppointments, ...allAppointments].map(a => a.doctor_name).filter(Boolean))];
+            
+            const todayDoctorFilter = document.getElementById('todayDoctorFilter');
+            const allDoctorFilter = document.getElementById('allDoctorFilter');
+            
+            if (todayDoctorFilter) {
+                todayDoctorFilter.innerHTML = '<option value="">All Doctors</option>' + 
+                    doctors.map(doctor => `<option value="${doctor}">${doctor}</option>`).join('');
+            }
+            
+            if (allDoctorFilter) {
+                allDoctorFilter.innerHTML = '<option value="">All Doctors</option>' + 
+                    doctors.map(doctor => `<option value="${doctor}">${doctor}</option>`).join('');
+            }
+        }
+
+        // Display today's appointments
+        function displayTodayAppointments(appointments) {
+            document.getElementById('todayAppointmentsTable').innerHTML = appointments.map(a => `
+                <tr>
+                    <td><strong>${formatTokenNumber(a.token_number)}</strong></td>
+                    <td>${a.patient_name || 'N/A'}</td>
+                    <td>${a.doctor_name || 'N/A'}</td>
+                    <td>${new Date(a.created_at).toLocaleTimeString()}</td>
+                    <td>${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
+                        <button class="btn btn-sm btn-secondary" onclick="updateAppointmentStatus(${a.appointment_id}, 'Completed')">Complete</button>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments today</td></tr>';
+        }
+
+        // Display all appointments
+        function displayAllAppointments(appointments) {
+            document.getElementById('allAppointmentsTable').innerHTML = appointments.slice().reverse().map(a => `
+                <tr>
+                    <td><strong>${formatTokenNumber(a.token_number)}</strong></td>
+                    <td>${a.patient_name || 'N/A'}</td>
+                    <td>${a.doctor_name || 'N/A'}</td>
+                    <td>${formatDate(a.appointment_date)}</td>
+                    <td>${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
+                        <span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span>
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments found</td></tr>';
+        }
+
+        // Filter today's appointments
+        function filterTodayAppointments() {
+            const doctorFilter = document.getElementById('todayDoctorFilter').value.toLowerCase();
+            const statusFilter = document.getElementById('todayStatusFilter').value.toLowerCase();
+            const patientFilter = document.getElementById('todayPatientFilter').value.toLowerCase();
+
+            const filtered = todayAppointments.filter(appointment => {
+                const doctorMatch = !doctorFilter || (appointment.doctor_name && appointment.doctor_name.toLowerCase().includes(doctorFilter));
+                const statusMatch = !statusFilter || (appointment.status && appointment.status.toLowerCase() === statusFilter);
+                const patientMatch = !patientFilter || (appointment.patient_name && appointment.patient_name.toLowerCase().includes(patientFilter));
+
+                return doctorMatch && statusMatch && patientMatch;
+            });
+
+            displayTodayAppointments(filtered);
+        }
+
+        // Filter all appointments
+        function filterAllAppointments() {
+            const doctorFilter = document.getElementById('allDoctorFilter').value.toLowerCase();
+            const statusFilter = document.getElementById('allStatusFilter').value.toLowerCase();
+            const patientFilter = document.getElementById('allPatientFilter').value.toLowerCase();
+            const dateFromFilter = document.getElementById('allDateFromFilter').value;
+            const dateToFilter = document.getElementById('allDateToFilter').value;
+
+            const filtered = allAppointments.filter(appointment => {
+                const doctorMatch = !doctorFilter || (appointment.doctor_name && appointment.doctor_name.toLowerCase().includes(doctorFilter));
+                const statusMatch = !statusFilter || (appointment.status && appointment.status.toLowerCase() === statusFilter);
+                const patientMatch = !patientFilter || (appointment.patient_name && appointment.patient_name.toLowerCase().includes(patientFilter));
+                
+                let dateMatch = true;
+                if (dateFromFilter || dateToFilter) {
+                    const appointmentDate = new Date(appointment.appointment_date);
+                    if (dateFromFilter) {
+                        dateMatch = dateMatch && appointmentDate >= new Date(dateFromFilter);
+                    }
+                    if (dateToFilter) {
+                        dateMatch = dateMatch && appointmentDate <= new Date(dateToFilter);
+                    }
+                }
+
+                return doctorMatch && statusMatch && patientMatch && dateMatch;
+            });
+
+            displayAllAppointments(filtered);
+        }
+
+        // Clear today's filters
+        function clearTodayFilters() {
+            document.getElementById('todayDoctorFilter').value = '';
+            document.getElementById('todayStatusFilter').value = '';
+            document.getElementById('todayPatientFilter').value = '';
+            displayTodayAppointments(todayAppointments);
+        }
+
+        // Clear all filters
+        function clearAllFilters() {
+            document.getElementById('allDoctorFilter').value = '';
+            document.getElementById('allStatusFilter').value = '';
+            document.getElementById('allPatientFilter').value = '';
+            document.getElementById('allDateFromFilter').value = '';
+            document.getElementById('allDateToFilter').value = '';
+            displayAllAppointments(allAppointments);
         }
 
         // Patient Modal Functions

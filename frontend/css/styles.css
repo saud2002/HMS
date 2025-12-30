@@ -706,3 +706,181 @@ tr:hover { background: #f8fafc; }
     position: relative;
     overflow: hidden;
 }
+/* Payment Status Styles */
+.payment-status-section {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.payment-status-section h4 {
+    margin: 0 0 10px 0;
+    color: #374151;
+    font-size: 16px;
+}
+
+.payment-status-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.payment-status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.payment-status-badge.pending {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.payment-status-badge.paid {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.payment-status-badge.partial {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.payment-status-select {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    min-width: 120px;
+}
+
+.payment-status-select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.payment-status-select:disabled {
+    background: #f9fafb;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+/* Responsive payment status controls */
+@media (max-width: 768px) {
+    .payment-status-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .payment-status-select {
+        width: 100%;
+    }
+}
+/* Action Buttons with Icons */
+.btn svg {
+    vertical-align: middle;
+}
+
+.btn-sm svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Icon-only buttons */
+.btn-sm:has(svg:only-child) {
+    padding: 6px 8px;
+    min-width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Action button container */
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Specific button colors */
+.btn-danger {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: white;
+    border: none;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #b91c1c, #991b1b);
+    transform: translateY(-1px);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    transform: translateY(-1px);
+}
+
+/* Responsive action buttons */
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .action-buttons .btn {
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 2px;
+    }
+}
+
+/* Table action column */
+td .action-buttons {
+    min-width: 200px;
+}
+
+/* Button tooltips */
+.btn[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 5px;
+}
+
+.btn[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #333;
+    z-index: 1000;
+}
+
+.btn[title] {
+    position: relative;
+}
