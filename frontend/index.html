@@ -79,6 +79,21 @@
             <div class="card-title">📊 Recent Activity</div>
             <div id="activityList"></div>
         </div>
+
+        <!-- Doctor Availability Today -->
+        <div class="card">
+            <div class="card-title">
+                👨‍⚕️ Doctor Availability - <span id="todayDate"></span>
+                <a href="/settings.html" class="btn btn-sm btn-primary" style="float: right; font-size: 12px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    Manage
+                </a>
+            </div>
+            <div id="doctorAvailabilityList"></div>
+        </div>
     </div>
 
     <script src="/static/js/data.js"></script>
@@ -127,10 +142,113 @@
             }).join('') || '<p style="color:#64748b; padding: 20px;">No recent activity</p>';
         }
 
+        // Load and render doctor availability for today
+        async function loadDoctorAvailability() {
+            try {
+                console.log('🔍 Dashboard: Loading doctor availability...');
+                const schedules = await API.Doctors.getSchedules();
+                console.log('🔍 Dashboard: Received schedules:', schedules);
+                
+                // Get today's day name
+                const today = new Date();
+                const todayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+                const currentTime = today.getHours() * 60 + today.getMinutes(); // Current time in minutes
+                
+                // Update today's date display
+                document.getElementById('todayDate').textContent = today.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+                
+                const container = document.getElementById('doctorAvailabilityList');
+                
+                if (schedules.length === 0) {
+                    console.log('🔍 Dashboard: No schedules found');
+                    container.innerHTML = `
+                        <div class="no-schedules">
+                            <p>📅 No doctor schedules configured</p>
+                            <a href="/settings.html" class="btn btn-sm btn-primary">Add Schedules</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                console.log('🔍 Dashboard: Processing availability...');
+                
+                let html = '<div class="doctor-availability-list">';
+                
+                schedules.forEach(schedule => {
+                    const workingDays = schedule.working_days.split(', ').map(day => day.trim());
+                    const isWorkingToday = workingDays.includes(todayName);
+                    
+                    // Parse schedule times
+                    const [startHour, startMin] = schedule.start_time.split(':').map(Number);
+                    const [endHour, endMin] = schedule.end_time.split(':').map(Number);
+                    const startTime = startHour * 60 + startMin;
+                    const endTime = endHour * 60 + endMin;
+                    
+                    // Determine status
+                    let statusIcon = '⚫';
+                    let statusText = 'Not working today';
+                    let statusClass = 'unavailable';
+                    let timeInfo = `Works: ${schedule.working_days}`;
+                    
+                    if (isWorkingToday) {
+                        timeInfo = `Today: ${schedule.start_time} - ${schedule.end_time}`;
+                        
+                        if (currentTime < startTime) {
+                            statusIcon = '🟡';
+                            statusText = `Starts at ${schedule.start_time}`;
+                            statusClass = 'upcoming';
+                        } else if (currentTime >= startTime && currentTime <= endTime) {
+                            statusIcon = '🟢';
+                            statusText = `Available now (until ${schedule.end_time})`;
+                            statusClass = 'available';
+                        } else {
+                            statusIcon = '🔴';
+                            statusText = `Finished (${schedule.start_time}-${schedule.end_time})`;
+                            statusClass = 'finished';
+                        }
+                    }
+                    
+                    html += `
+                        <div class="doctor-availability-item ${statusClass}">
+                            <div class="doctor-basic-info">
+                                <div class="doctor-name-status">
+                                    <span class="status-icon">${statusIcon}</span>
+                                    <span class="doctor-name">Dr. ${schedule.doctor_name}</span>
+                                    <span class="doctor-specialization">(${schedule.specialization})</span>
+                                </div>
+                                <div class="availability-info">
+                                    <span class="status-text">${statusText}</span>
+                                    <span class="time-info">${timeInfo}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+                console.log('✅ Dashboard: Availability rendered successfully');
+                
+            } catch (error) {
+                console.error('❌ Dashboard: Error loading availability:', error);
+                document.getElementById('doctorAvailabilityList').innerHTML = `
+                    <div class="error-message">
+                        <p>⚠️ Error loading doctor availability</p>
+                        <button onclick="loadDoctorAvailability()" class="btn btn-sm btn-secondary">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
             updateStats();
             renderActivities();
+            loadDoctorAvailability();
         });
     </script>
     <script src="/static/js/api.js"></script>

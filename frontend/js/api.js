@@ -53,7 +53,12 @@ const Doctors = {
     create: (data) => apiRequest('/doctors', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiRequest(`/doctors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deactivate: (id) => apiRequest(`/doctors/${id}`, { method: 'DELETE' }),
-    delete: (id) => apiRequest(`/doctors/${id}/delete`, { method: 'DELETE' })
+    delete: (id) => apiRequest(`/doctors/${id}/delete`, { method: 'DELETE' }),
+    // Schedule management
+    getSchedules: () => apiRequest('/doctors/schedules'),
+    getSchedule: (doctorId) => apiRequest(`/doctors/${doctorId}/schedule`),
+    saveSchedule: (data) => apiRequest('/doctors/schedule', { method: 'POST', body: JSON.stringify(data) }),
+    deleteSchedule: (doctorId) => apiRequest(`/doctors/${doctorId}/schedule`, { method: 'DELETE' })
 };
 
 // ==================== APPOINTMENTS ====================

@@ -72,8 +72,9 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Phone Number *</label>
-                        <input type="tel" id="patientPhone" pattern="[0-9]{10,15}" title="10-15 digits" required>
+                        <label>Phone Number * (10 digits only)</label>
+                        <input type="tel" id="patientPhone" pattern="[0-9]{10}" maxlength="10" title="Please enter exactly 10 digits" placeholder="1234567890" required oninput="validatePhoneNumber(this)">
+                        <small id="phoneError" style="color: red; display: none;">Phone number must be exactly 10 digits</small>
                     </div>
                     <div class="form-group">
                         <label>NIC Number *</label>
@@ -159,16 +160,54 @@
             document.getElementById('patientModal').classList.remove('active');
         }
 
+        // Validate phone number (10 digits only)
+        function validatePhoneNumber(input) {
+            const phoneError = document.getElementById('phoneError');
+            const value = input.value;
+            
+            // Remove any non-digit characters
+            const digitsOnly = value.replace(/\D/g, '');
+            
+            // Update input with digits only
+            if (digitsOnly !== value) {
+                input.value = digitsOnly;
+            }
+            
+            // Validate length
+            if (digitsOnly.length === 0) {
+                phoneError.style.display = 'none';
+                input.style.borderColor = '';
+            } else if (digitsOnly.length !== 10) {
+                phoneError.style.display = 'block';
+                phoneError.textContent = `Phone number must be exactly 10 digits (currently ${digitsOnly.length} digits)`;
+                input.style.borderColor = '#dc2626';
+            } else {
+                phoneError.style.display = 'none';
+                input.style.borderColor = '#16a34a';
+            }
+        }
+
         // Save patient
         async function savePatient(e) {
             e.preventDefault();
+            
+            // Validate phone number before saving
+            const phoneInput = document.getElementById('patientPhone');
+            const phoneValue = phoneInput.value.replace(/\D/g, '');
+            
+            if (phoneValue.length !== 10) {
+                showToast('Phone number must be exactly 10 digits', 'error');
+                phoneInput.focus();
+                return;
+            }
+            
             const editId = document.getElementById('patientEditId').value;
             
             const data = {
                 patient_name: document.getElementById('patientName').value,
                 age: parseInt(document.getElementById('patientAge').value),
                 gender: document.getElementById('patientGender').value,
-                phone_number: document.getElementById('patientPhone').value,
+                phone_number: phoneValue, // Use cleaned phone number
                 nic: document.getElementById('patientNIC').value
             };
 
