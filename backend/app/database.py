@@ -59,6 +59,25 @@ def create_database_schema():
     # Create tables from models
     Base.metadata.create_all(bind=engine)
     
+    # Create additional tables that are not in models
+    with engine.connect() as conn:
+        # Create doctor_schedules table
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS doctor_schedules (
+                schedule_id INT AUTO_INCREMENT PRIMARY KEY,
+                doctor_id VARCHAR(20) NOT NULL,
+                working_days VARCHAR(255) NOT NULL,
+                start_time TIME NOT NULL,
+                end_time TIME NOT NULL,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_doctor_schedule (doctor_id),
+                FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id) ON DELETE CASCADE
+            )
+        """))
+        conn.commit()
+    
     # Execute additional SQL for views and procedures (MySQL only)
     if is_mysql:
         with engine.connect() as conn:
