@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Management - HMS</title>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
+
 <body>
     <div class="sidebar" id="sidebar"></div>
     <div class="topbar" id="topbar"></div>
@@ -13,9 +15,21 @@
     <div class="main-content">
         <!-- Search & Add -->
         <div class="card no-print">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                <div class="search-box" style="flex: 1; min-width: 250px; margin: 0;">
-                    <input type="text" id="doctorSearch" placeholder="Search by name or specialization..." onkeyup="searchDoctors()">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; gap: 15px; align-items: center; flex: 1;">
+                    <div class="search-box" style="flex: 1; min-width: 250px; margin: 0;">
+                        <input type="text" id="doctorSearch" placeholder="Search by name or specialization..."
+                            onkeyup="searchDoctors()">
+                    </div>
+                    <div style="min-width: 150px;">
+                        <select id="statusFilter" onchange="filterByStatus()"
+                            style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white;">
+                            <option value="">All Doctors</option>
+                            <option value="Active">Active Only</option>
+                            <option value="Inactive">Inactive Only</option>
+                        </select>
+                    </div>
                 </div>
                 <button class="btn btn-primary" onclick="openDoctorModal()">+ Add New Doctor</button>
             </div>
@@ -90,8 +104,8 @@
         // Render doctors table
         async function renderDoctors(list = null) {
             try {
-                const doctors = list || await API.Doctors.getAll();
-            document.getElementById('doctorsTable').innerHTML = doctors.map(d => `
+                const doctors = list || await API.Doctors.getAll('');
+                document.getElementById('doctorsTable').innerHTML = doctors.map(d => `
                 <tr>
                     <td>${d.doctor_id}</td>
                     <td>${d.doctor_name}</td>
@@ -99,8 +113,27 @@
                     <td>$${d.consultation_charges.toLocaleString()}</td>
                     <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="openDoctorModal('${d.doctor_id}')">Edit</button>
-                        <button class="btn btn-sm btn-secondary" onclick="toggleDoctorStatus('${d.doctor_id}')">${d.status === 'Active' ? 'Deactivate' : 'Activate'}</button>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-primary" onclick="openDoctorModal('${d.doctor_id}')" title="Edit Doctor">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                            <button class="btn btn-sm ${d.status === 'Active' ? 'btn-warning' : 'btn-success'}" onclick="toggleDoctorStatus('${d.doctor_id}', '${d.status}')" title="${d.status === 'Active' ? 'Deactivate Doctor' : 'Activate Doctor'}">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    ${d.status === 'Active' ?
+                        '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>' :
+                        '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>'
+                    }
+                                </svg>
+                                ${d.status === 'Active' ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteDoctor('${d.doctor_id}', '${d.doctor_name}')" title="Delete Doctor Permanently">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="6" style="text-align:center;">No doctors found</td></tr>';
@@ -114,9 +147,9 @@
         async function searchDoctors() {
             try {
                 const query = document.getElementById('doctorSearch').value.toLowerCase();
-                const doctors = await API.Doctors.getAll();
-                const filtered = doctors.filter(d => 
-                    d.doctor_name.toLowerCase().includes(query) || 
+                const doctors = await API.Doctors.getAll(''); // Get all doctors, not just active
+                const filtered = doctors.filter(d =>
+                    d.doctor_name.toLowerCase().includes(query) ||
                     d.specialization.toLowerCase().includes(query)
                 );
                 renderDoctors(filtered);
@@ -126,12 +159,40 @@
             }
         }
 
+        // Filter doctors by status
+        async function filterByStatus() {
+            try {
+                const statusFilter = document.getElementById('statusFilter').value;
+                const searchQuery = document.getElementById('doctorSearch').value.toLowerCase();
+
+                let doctors;
+                if (statusFilter) {
+                    doctors = await API.Doctors.getAll(statusFilter);
+                } else {
+                    doctors = await API.Doctors.getAll(''); // All doctors
+                }
+
+                // Apply search filter if there's a search query
+                if (searchQuery) {
+                    doctors = doctors.filter(d =>
+                        d.doctor_name.toLowerCase().includes(searchQuery) ||
+                        d.specialization.toLowerCase().includes(searchQuery)
+                    );
+                }
+
+                renderDoctors(doctors);
+            } catch (error) {
+                console.error('Error filtering doctors:', error);
+                showToast('Error filtering doctors', 'error');
+            }
+        }
+
         // Generate next doctor ID
         async function generateNextDoctorId() {
             try {
-                const doctors = await API.Doctors.getAll();
+                const doctors = await API.Doctors.getAll(''); // Get all doctors to find highest ID
                 let maxId = 0;
-                
+
                 // Find the highest existing doctor ID number
                 doctors.forEach(doctor => {
                     const match = doctor.doctor_id.match(/DR(\d+)/);
@@ -142,7 +203,7 @@
                         }
                     }
                 });
-                
+
                 // Generate next ID
                 const nextId = maxId + 1;
                 return `DR${nextId.toString().padStart(3, '0')}`;
@@ -196,7 +257,7 @@
         async function saveDoctor(e) {
             e.preventDefault();
             const editId = document.getElementById('doctorEditId').value;
-            
+
             const data = {
                 doctor_id: document.getElementById('doctorId').value,
                 doctor_name: document.getElementById('doctorName').value,
@@ -224,14 +285,43 @@
         }
 
         // Toggle doctor status
-        async function toggleDoctorStatus(id) {
+        async function toggleDoctorStatus(id, currentStatus) {
+            const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+            const action = newStatus === 'Active' ? 'activate' : 'deactivate';
+
+            if (!confirm(`Are you sure you want to ${action} this doctor?`)) {
+                return;
+            }
+
             try {
-                await API.Doctors.deactivate(id);
-                showToast('Doctor status updated successfully!', 'success');
+                // Use the update API to change only the status
+                await API.Doctors.update(id, { status: newStatus });
+                showToast(`Doctor ${action}d successfully!`, 'success');
                 await renderDoctors(); // Reload from database
             } catch (error) {
                 console.error('Error updating doctor status:', error);
-                showToast('Failed to update doctor status', 'error');
+                showToast(`Failed to ${action} doctor`, 'error');
+            }
+        }
+
+        // Delete doctor permanently
+        async function deleteDoctor(id, name) {
+            if (!confirm(`⚠️ WARNING: This will permanently delete Dr. ${name} from the system.\n\nThis action cannot be undone and will remove all associated data.\n\nAre you absolutely sure you want to delete this doctor?`)) {
+                return;
+            }
+
+            // Double confirmation for safety
+            if (!confirm(`Final confirmation: Delete Dr. ${name} permanently?`)) {
+                return;
+            }
+
+            try {
+                await API.Doctors.delete(id);
+                showToast(`Dr. ${name} deleted successfully!`, 'success');
+                await renderDoctors(); // Reload from database
+            } catch (error) {
+                console.error('Error deleting doctor:', error);
+                showToast(`Failed to delete Dr. ${name}: ${error.message}`, 'error');
             }
         }
 
@@ -244,11 +334,12 @@
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             renderDoctors();
             checkUrlParams();
         });
     </script>
     <script src="/static/js/api.js"></script>
 </body>
+
 </html>
