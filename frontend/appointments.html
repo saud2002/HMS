@@ -203,12 +203,6 @@
                     '<option value="">-- Select Doctor --</option>' +
                     doctors.map(d => `<option value="${d.doctor_id}">${d.doctor_name} - ${d.specialization}</option>`).join('');
 
-                // Auto-select first doctor if available
-                if (doctors.length > 0) {
-                    document.getElementById('appointmentDoctor').value = doctors[0].doctor_id;
-                    await fillDoctorDetails();
-                }
-
                 // Load services from settings
                 await loadServices();
             } catch (error) {

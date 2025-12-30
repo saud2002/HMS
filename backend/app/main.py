@@ -17,6 +17,9 @@ from .database import get_db, create_database_schema, test_connection
 from .config import settings
 from .models import *
 from .schemas import *
+from .schemas.bill import PaymentStatusUpdate
+from .models.voucher import Voucher, VoucherType, VoucherStatus
+from .schemas.voucher import VoucherCreate, VoucherUpdate, VoucherResponse, VoucherSummary, DoctorPaymentSummary
 
 # Import JWT only
 from jose import jwt
@@ -223,6 +226,23 @@ def redirect_to_login():
     frontend_path = Path(__file__).parent.parent.parent / "frontend" / "login.html"
     return FileResponse(str(frontend_path))
 
+@app.get("/index.html")
+def serve_index(request: Request):
+    """Serve dashboard/index page with authentication check"""
+    # Check authentication
+    auth_redirect = check_frontend_auth(request)
+    if auth_redirect:
+        return auth_redirect
+    
+    frontend_path = Path(__file__).parent.parent.parent / "frontend" / "index.html"
+    return FileResponse(str(frontend_path))
+
+@app.get("/test_navigation.html")
+def serve_test_navigation():
+    """Serve navigation test page (no auth required for testing)"""
+    frontend_path = Path(__file__).parent.parent.parent / "frontend" / "test_navigation.html"
+    return FileResponse(str(frontend_path))
+
 # --- Frontend Routes ---
 @app.get("/patients.html")
 def serve_patients(request: Request):
@@ -272,6 +292,16 @@ def serve_settings(request: Request):
         return auth_redirect
     
     frontend_path = Path(__file__).parent.parent.parent / "frontend" / "settings.html"
+    return FileResponse(str(frontend_path))
+
+@app.get("/vouchers.html")
+def serve_vouchers(request: Request):
+    # Check authentication
+    auth_redirect = check_frontend_auth(request)
+    if auth_redirect:
+        return auth_redirect
+    
+    frontend_path = Path(__file__).parent.parent.parent / "frontend" / "vouchers.html"
     return FileResponse(str(frontend_path))
 
 # --- API Info Endpoint ---
@@ -886,18 +916,27 @@ def get_bill_by_appointment(appointment_id: int, db: Session = Depends(get_db)):
     return get_bill(bill.bill_id, db)
 
 @app.patch("/api/bills/{bill_id}/payment-status")
-def update_payment_status(bill_id: int, payment_status: str, db: Session = Depends(get_db)):
-    valid_statuses = ["Pending", "Paid", "Partial"]
-    if payment_status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
-    
-    bill = db.query(Bill).filter(Bill.bill_id == bill_id).first()
-    if not bill:
-        raise HTTPException(status_code=404, detail="Bill not found")
-    
-    bill.payment_status = payment_status
-    db.commit()
-    return {"message": f"Payment status updated to {payment_status}"}
+def update_payment_status(bill_id: int, status_update: PaymentStatusUpdate, db: Session = Depends(get_db)):
+    try:
+        print(f"🔍 Received payment status update request: bill_id={bill_id}, status_update={status_update}")
+        payment_status = status_update.payment_status
+        print(f"🔍 Extracted payment_status: {payment_status}")
+        
+        bill = db.query(Bill).filter(Bill.bill_id == bill_id).first()
+        if not bill:
+            print(f"❌ Bill not found: {bill_id}")
+            raise HTTPException(status_code=404, detail="Bill not found")
+        
+        print(f"🔍 Found bill: {bill.bill_id}, current status: {bill.payment_status}")
+        bill.payment_status = payment_status
+        db.commit()
+        print(f"✅ Payment status updated successfully to: {payment_status}")
+        return {"message": f"Payment status updated to {payment_status}"}
+        
+    except Exception as e:
+        print(f"❌ Error in update_payment_status: {str(e)}")
+        print(f"❌ Error type: {type(e)}")
+        raise
 
 # =====================================================
 # REPORTS ENDPOINTS
@@ -1382,3 +1421,235 @@ if __name__ == "__main__":
     # Add missing import at top if needed
     from datetime import timedelta
     uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
+
+# =====================================================
+# VOUCHER ENDPOINTS
+# =====================================================
+
+def generate_voucher_number(db: Session, voucher_type: str) -> str:
+    """Generate unique voucher number"""
+    today = date.today()
+    prefix = "VCH"
+    date_str = today.strftime("%Y%m%d")
+    
+    # Get the count of vouchers created today
+    count = db.query(Voucher).filter(
+        func.date(Voucher.created_at) == today
+    ).count()
+    
+    sequence = str(count + 1).zfill(4)
+    return f"{prefix}-{date_str}-{sequence}"
+
+@app.get("/api/vouchers/summary")
+def get_voucher_summary(db: Session = Depends(get_db)):
+    """Get voucher summary statistics"""
+    try:
+        total_vouchers = db.query(Voucher).count()
+        draft_count = db.query(Voucher).filter(Voucher.status == VoucherStatus.DRAFT).count()
+        pending_count = db.query(Voucher).filter(Voucher.status == VoucherStatus.PENDING_APPROVAL).count()
+        approved_count = db.query(Voucher).filter(Voucher.status == VoucherStatus.APPROVED).count()
+        paid_count = db.query(Voucher).filter(Voucher.status == VoucherStatus.PAID).count()
+        rejected_count = db.query(Voucher).filter(Voucher.status == VoucherStatus.REJECTED).count()
+        
+        total_amount = db.query(func.sum(Voucher.amount)).scalar() or 0
+        pending_amount = db.query(func.sum(Voucher.amount)).filter(
+            Voucher.status.in_([VoucherStatus.PENDING_APPROVAL, VoucherStatus.APPROVED])
+        ).scalar() or 0
+        
+        return VoucherSummary(
+            total_vouchers=total_vouchers,
+            draft_count=draft_count,
+            pending_approval_count=pending_count,
+            approved_count=approved_count,
+            paid_count=paid_count,
+            rejected_count=rejected_count,
+            total_amount=total_amount,
+            pending_amount=pending_amount
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting voucher summary: {str(e)}")
+
+@app.get("/api/vouchers", response_model=List[VoucherResponse])
+def get_vouchers(
+    voucher_type: Optional[str] = None,
+    status: Optional[str] = None,
+    doctor_id: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: Session = Depends(get_db)
+):
+    """Get vouchers with optional filters"""
+    try:
+        query = db.query(Voucher).join(Doctor, Voucher.doctor_id == Doctor.doctor_id, isouter=True)
+        
+        if voucher_type:
+            query = query.filter(Voucher.voucher_type == voucher_type)
+        if status:
+            query = query.filter(Voucher.status == status)
+        if doctor_id:
+            query = query.filter(Voucher.doctor_id == doctor_id)
+        if date_from:
+            query = query.filter(Voucher.voucher_date >= date_from)
+        if date_to:
+            query = query.filter(Voucher.voucher_date <= date_to)
+        
+        vouchers = query.order_by(Voucher.created_at.desc()).all()
+        
+        result = []
+        for voucher in vouchers:
+            voucher_data = VoucherResponse.from_orm(voucher)
+            if voucher.doctor:
+                voucher_data.doctor_name = voucher.doctor.doctor_name
+            result.append(voucher_data)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting vouchers: {str(e)}")
+
+@app.get("/api/vouchers/{voucher_id}", response_model=VoucherResponse)
+def get_voucher(voucher_id: int, db: Session = Depends(get_db)):
+    """Get voucher by ID"""
+    voucher = db.query(Voucher).filter(Voucher.voucher_id == voucher_id).first()
+    if not voucher:
+        raise HTTPException(status_code=404, detail="Voucher not found")
+    
+    voucher_data = VoucherResponse.from_orm(voucher)
+    if voucher.doctor:
+        voucher_data.doctor_name = voucher.doctor.doctor_name
+    
+    return voucher_data
+
+@app.post("/api/vouchers", response_model=VoucherResponse)
+def create_voucher(voucher: VoucherCreate, db: Session = Depends(get_db)):
+    """Create new voucher"""
+    try:
+        # Validate doctor exists if doctor_id provided
+        if voucher.doctor_id:
+            doctor = db.query(Doctor).filter(Doctor.doctor_id == voucher.doctor_id).first()
+            if not doctor:
+                raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        # Generate voucher number
+        voucher_number = generate_voucher_number(db, voucher.voucher_type)
+        
+        # Create voucher
+        db_voucher = Voucher(
+            voucher_number=voucher_number,
+            voucher_type=voucher.voucher_type,
+            doctor_id=voucher.doctor_id,
+            payment_period_start=voucher.payment_period_start,
+            payment_period_end=voucher.payment_period_end,
+            amount=voucher.amount,
+            description=voucher.description,
+            voucher_date=voucher.voucher_date,
+            status=VoucherStatus.DRAFT,
+            created_by=1  # TODO: Get from JWT token
+        )
+        
+        db.add(db_voucher)
+        db.commit()
+        db.refresh(db_voucher)
+        
+        voucher_data = VoucherResponse.from_orm(db_voucher)
+        if db_voucher.doctor:
+            voucher_data.doctor_name = db_voucher.doctor.doctor_name
+        
+        return voucher_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating voucher: {str(e)}")
+
+@app.post("/api/vouchers/{voucher_id}/submit")
+def submit_voucher_for_approval(voucher_id: int, db: Session = Depends(get_db)):
+    """Submit voucher for approval"""
+    try:
+        voucher = db.query(Voucher).filter(Voucher.voucher_id == voucher_id).first()
+        if not voucher:
+            raise HTTPException(status_code=404, detail="Voucher not found")
+        
+        if not voucher.can_be_submitted:
+            raise HTTPException(status_code=400, detail="Voucher cannot be submitted for approval")
+        
+        voucher.status = VoucherStatus.PENDING_APPROVAL
+        voucher.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return {"message": "Voucher submitted for approval successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error submitting voucher: {str(e)}")
+
+@app.post("/api/vouchers/{voucher_id}/approve")
+def approve_voucher(voucher_id: int, db: Session = Depends(get_db)):
+    """Approve voucher"""
+    try:
+        voucher = db.query(Voucher).filter(Voucher.voucher_id == voucher_id).first()
+        if not voucher:
+            raise HTTPException(status_code=404, detail="Voucher not found")
+        
+        if not voucher.can_be_approved:
+            raise HTTPException(status_code=400, detail="Voucher cannot be approved")
+        
+        voucher.status = VoucherStatus.APPROVED
+        voucher.approved_by = 1  # TODO: Get from JWT token
+        voucher.approved_at = datetime.utcnow()
+        voucher.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return {"message": "Voucher approved successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error approving voucher: {str(e)}")
+
+@app.post("/api/vouchers/{voucher_id}/reject")
+def reject_voucher(voucher_id: int, db: Session = Depends(get_db)):
+    """Reject voucher"""
+    try:
+        voucher = db.query(Voucher).filter(Voucher.voucher_id == voucher_id).first()
+        if not voucher:
+            raise HTTPException(status_code=404, detail="Voucher not found")
+        
+        if not voucher.can_be_approved:
+            raise HTTPException(status_code=400, detail="Voucher cannot be rejected")
+        
+        voucher.status = VoucherStatus.REJECTED
+        voucher.approved_by = 1  # TODO: Get from JWT token
+        voucher.approved_at = datetime.utcnow()
+        voucher.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return {"message": "Voucher rejected successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error rejecting voucher: {str(e)}")
+
+@app.post("/api/vouchers/{voucher_id}/pay")
+def mark_voucher_as_paid(voucher_id: int, db: Session = Depends(get_db)):
+    """Mark voucher as paid"""
+    try:
+        voucher = db.query(Voucher).filter(Voucher.voucher_id == voucher_id).first()
+        if not voucher:
+            raise HTTPException(status_code=404, detail="Voucher not found")
+        
+        if not voucher.can_be_paid:
+            raise HTTPException(status_code=400, detail="Voucher cannot be marked as paid")
+        
+        voucher.status = VoucherStatus.PAID
+        voucher.paid_at = datetime.utcnow()
+        voucher.updated_at = datetime.utcnow()
+        db.commit()
+        
+        return {"message": "Voucher marked as paid successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error marking voucher as paid: {str(e)}")

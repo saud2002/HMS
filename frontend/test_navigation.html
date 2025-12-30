@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Test - HMS</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar"></div>
+    <div class="topbar" id="topbar"></div>
+
+    <div class="main-content">
+        <div class="card">
+            <div class="card-title">🧭 Navigation Test</div>
+            <p>This page is for testing navigation links.</p>
+            <p>Click on "Dashboard" in the sidebar to test the dashboard link.</p>
+            
+            <div style="margin-top: 20px;">
+                <h4>Test Links:</h4>
+                <ul>
+                    <li><a href="/">Dashboard (root path)</a></li>
+                    <li><a href="/index.html">Dashboard (index.html)</a></li>
+                    <li><a href="/patients.html">Patients</a></li>
+                    <li><a href="/vouchers.html">Vouchers</a></li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <h4>Current Page Info:</h4>
+                <p>Current URL: <span id="currentUrl"></span></p>
+                <p>Current Page: <span id="currentPage"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        // Display current page info
+        document.getElementById('currentUrl').textContent = window.location.href;
+        document.getElementById('currentPage').textContent = getCurrentPage();
+        
+        // Test navigation
+        console.log('Current page:', getCurrentPage());
+        console.log('Current pathname:', window.location.pathname);
+    </script>
+</body>
+</html>

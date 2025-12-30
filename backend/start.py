@@ -26,7 +26,10 @@ def check_requirements():
 def check_database():
     """Check database connection"""
     try:
-        sys.path.append('app')
+        # Add current directory to path
+        current_dir = Path(__file__).parent
+        sys.path.insert(0, str(current_dir))
+        
         from app.database import test_connection
         if test_connection():
             print("✅ Database connection successful")

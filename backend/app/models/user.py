@@ -23,6 +23,8 @@ class AdminUser(Base):
     created_appointments = relationship("Appointment", foreign_keys="[Appointment.created_by]", back_populates="creator")
     created_bills = relationship("Bill", foreign_keys="[Bill.created_by]", back_populates="creator")
     system_logs = relationship("SystemLog", back_populates="admin")
+    created_vouchers = relationship("Voucher", foreign_keys="[Voucher.created_by]", back_populates="creator")
+    approved_vouchers = relationship("Voucher", foreign_keys="[Voucher.approved_by]", back_populates="approver")
     
     def __repr__(self):
         return f"<AdminUser(id={self.admin_id}, username='{self.username}', name='{self.full_name}')>"
