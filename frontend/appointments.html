@@ -60,6 +60,10 @@
                         <input type="text" id="appointmentDoctorFee" readonly>
                     </div>
                     <div class="form-group">
+                        <label>Hospital Charges</label>
+                        <input type="text" id="appointmentHospitalCharges" readonly>
+                    </div>
+                    <div class="form-group">
                         <label>Appointment Status *</label>
                         <select id="appointmentStatus">
                             <option value="Scheduled">Scheduled</option>
@@ -70,11 +74,16 @@
                     </div>
                 </div>
 
-                <div class="card-title" style="margin-top: 20px;">💰 Charges</div>
+                <div class="card-title" style="margin-top: 20px;">📋 Appointment Details</div>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Hospital Charges (LKR)</label>
-                        <input type="number" id="hospitalCharges" value="50" min="0">
+                        <label>Appointment Status</label>
+                        <select id="appointmentStatus">
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                            <option value="No Show">No Show</option>
+                        </select>
                     </div>
                 </div>
 
@@ -247,7 +256,7 @@
                     <select id="paymentStatusSelect" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
                         <option value="Pending">Pending</option>
                         <option value="Paid">Paid</option>
-                        <option value="Partial">Partial</option>
+                        
                     </select>
                     <button class="btn btn-sm btn-success" onclick="updatePaymentStatus()" id="updatePaymentBtn">Update Status</button>
                 </div>
@@ -379,6 +388,7 @@
             if (!doctorId) {
                 document.getElementById('appointmentSpecialization').value = '';
                 document.getElementById('appointmentDoctorFee').value = '';
+                document.getElementById('appointmentHospitalCharges').value = '';
                 return;
             }
             
@@ -386,10 +396,12 @@
                 const d = await API.Doctors.getById(doctorId);
                 document.getElementById('appointmentSpecialization').value = d ? d.specialization : '';
                 document.getElementById('appointmentDoctorFee').value = d ? 'Rs. ' + d.consultation_charges : '';
+                document.getElementById('appointmentHospitalCharges').value = d ? 'Rs. ' + d.hospital_charges : '';
             } catch (error) {
                 console.error('Error loading doctor details:', error);
                 document.getElementById('appointmentSpecialization').value = '';
                 document.getElementById('appointmentDoctorFee').value = '';
+                document.getElementById('appointmentHospitalCharges').value = '';
             }
         }
 
@@ -425,8 +437,6 @@
                 return;
             }
 
-            const hospitalCharges = parseFloat(document.getElementById('hospitalCharges').value) || 0;
-
             try {
                 console.log('🔍 Creating appointment...');
                 
@@ -438,7 +448,6 @@
                     patient_id: patientId,
                     doctor_id: doctorId,
                     appointment_date: new Date().toISOString().split('T')[0], // Today's date
-                    hospital_charges: hospitalCharges,
                     status: appointmentStatus
                 };
 
@@ -539,7 +548,6 @@
                 await fillPatientDetails();
                 await fillDoctorDetails();
                 document.querySelectorAll('#servicesCheckboxGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
-                document.getElementById('hospitalCharges').value = '50';
 
             } catch (error) {
                 console.error('Error creating appointment:', error);
@@ -849,10 +857,10 @@
                     <td>${a.patient_name || 'N/A'}</td>
                     <td>${a.doctor_name || 'N/A'}</td>
                     <td>${new Date(a.created_at).toLocaleTimeString()}</td>
-                    <td>${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
+                    <td>Rs. ${parseFloat(a.bill_total || 0).toFixed(2)}</td>
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
-                        <button class="btn btn-sm btn-secondary" onclick="updateAppointmentStatus(${a.appointment_id}, 'Completed')">Complete</button>
+                        
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments today</td></tr>';
@@ -866,7 +874,7 @@
                     <td>${a.patient_name || 'N/A'}</td>
                     <td>${a.doctor_name || 'N/A'}</td>
                     <td>${formatDate(a.appointment_date)}</td>
-                    <td>${(parseFloat(a.doctor_charges) + parseFloat(a.hospital_charges)).toFixed(2)}</td>
+                    <td>Rs. ${parseFloat(a.bill_total || 0).toFixed(2)}</td>
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
                         <span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span>

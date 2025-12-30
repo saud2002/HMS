@@ -480,6 +480,7 @@ def get_doctors(
                 "doctor_name": d.doctor_name,
                 "specialization": d.specialization,
                 "consultation_charges": float(d.consultation_charges),
+                "hospital_charges": float(d.hospital_charges),
                 "status": d.status,
                 "created_at": d.created_at.isoformat(),
                 "updated_at": d.updated_at.isoformat()
@@ -682,6 +683,7 @@ def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
             doctor_name=doctor.doctor_name,
             specialization=doctor.specialization,
             consultation_charges=doctor.consultation_charges,
+            hospital_charges=doctor.hospital_charges,
             status="Active"
         )
         db.add(db_doctor)
@@ -694,6 +696,7 @@ def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
             "doctor_name": db_doctor.doctor_name,
             "specialization": db_doctor.specialization,
             "consultation_charges": float(db_doctor.consultation_charges),
+            "hospital_charges": float(db_doctor.hospital_charges),
             "status": db_doctor.status,
             "created_at": db_doctor.created_at.isoformat(),
             "updated_at": db_doctor.updated_at.isoformat(),
@@ -778,6 +781,9 @@ def get_appointments(
     
     result = []
     for apt in appointments:
+        # Get the bill information for this appointment
+        bill = db.query(Bill).filter(Bill.appointment_id == apt.appointment_id).first()
+        
         result.append({
             "appointment_id": apt.appointment_id,
             "patient_id": apt.patient_id,
@@ -793,7 +799,11 @@ def get_appointments(
             "patient_phone": apt.patient.phone_number if apt.patient else None,
             "doctor_name": apt.doctor.doctor_name if apt.doctor else None,
             "specialization": apt.doctor.specialization if apt.doctor else None,
-            "created_at": apt.created_at.isoformat() if apt.created_at else None
+            "created_at": apt.created_at.isoformat() if apt.created_at else None,
+            # Include bill information
+            "bill_total": float(bill.total_amount) if bill else float(apt.doctor_charges) + float(apt.hospital_charges),
+            "additional_expenses": float(bill.additional_expenses_total) if bill else 0.0,
+            "payment_status": bill.payment_status if bill else "Pending"
         })
     return result
 
@@ -871,9 +881,9 @@ def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get
     # Generate token number
     token_number = generate_token_number(db, appointment.doctor_id, appointment.appointment_date)
     
-    # Get doctor's consultation charges
+    # Get doctor's consultation charges and hospital charges
     doctor_charges = float(doctor.consultation_charges)
-    hospital_charges = appointment.hospital_charges
+    hospital_charges = float(doctor.hospital_charges)  # Now based on doctor
     total_amount = doctor_charges + hospital_charges
     
     # Create appointment
@@ -1233,13 +1243,33 @@ def get_doctor_wise_report(
         Appointment.appointment_date.between(start_date, end_date)
     ).group_by(Doctor.doctor_id).all()
     
-    return [{
-        "doctor_id": r[0],
-        "doctor_name": r[1],
-        "specialization": r[2],
-        "total_appointments": r[3],
-        "total_doctor_fees": float(r[4] or 0)
-    } for r in results]
+    # Check payment status via vouchers for each doctor
+    doctor_reports = []
+    for r in results:
+        doctor_id = r[0]
+        total_fees = float(r[4] or 0)
+        
+        # Check if there's a paid voucher for this doctor covering this period
+        paid_voucher = db.query(Voucher).filter(
+            Voucher.doctor_id == doctor_id,
+            Voucher.voucher_type == "DOCTOR_PAYMENT",
+            Voucher.status == "PAID",
+            Voucher.payment_period_start <= start_date,
+            Voucher.payment_period_end >= end_date
+        ).first()
+        
+        doctor_reports.append({
+            "doctor_id": r[0],
+            "doctor_name": r[1],
+            "specialization": r[2],
+            "total_appointments": r[3],
+            "total_doctor_fees": total_fees,
+            "payment_status": "Paid" if paid_voucher else "Pending",
+            "voucher_number": paid_voucher.voucher_number if paid_voucher else None,
+            "paid_at": paid_voucher.paid_at.isoformat() if paid_voucher and paid_voucher.paid_at else None
+        })
+    
+    return doctor_reports
 
 @app.get("/api/reports/service-wise")
 def get_service_wise_report(
@@ -1831,3 +1861,32 @@ def mark_voucher_as_paid(voucher_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error marking voucher as paid: {str(e)}")
+
+@app.delete("/api/vouchers/{voucher_id}")
+def delete_voucher(voucher_id: int, db: Session = Depends(get_db)):
+    """Delete voucher (allowed for DRAFT, REJECTED, and PAID status)"""
+    try:
+        voucher = db.query(Voucher).filter(Voucher.voucher_id == voucher_id).first()
+        if not voucher:
+            raise HTTPException(status_code=404, detail="Voucher not found")
+        
+        # Allow deletion of DRAFT, REJECTED, and PAID vouchers
+        if voucher.status not in [VoucherStatus.DRAFT, VoucherStatus.REJECTED, VoucherStatus.PAID]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot delete voucher with status '{voucher.status}'. Only DRAFT, REJECTED, and PAID vouchers can be deleted."
+            )
+        
+        # Store voucher number for response
+        voucher_number = voucher.voucher_number
+        
+        # Delete the voucher
+        db.delete(voucher)
+        db.commit()
+        
+        return {"message": f"Voucher {voucher_number} deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error deleting voucher: {str(e)}")

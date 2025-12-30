@@ -5,6 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doctor Payments & Expenses - HMS</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .btn-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 28px;
+        }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-warning { background-color: #f59e0b; color: white; }
+        .btn-success { background-color: #10b981; color: white; }
+        .btn-danger { background-color: #ef4444; color: white; }
+        .btn-info { background-color: #06b6d4; color: white; }
+        .btn-sm:hover { opacity: 0.8; transform: scale(1.05); }
+        .btn-sm i { font-size: 12px; }
+    </style>
 </head>
 <body>
     <div class="sidebar" id="sidebar"></div>
@@ -22,8 +49,14 @@
                     <button class="btn btn-warning" onclick="showCreateVoucherModal('HOSPITAL_EXPENSE')">
                         <i class="fas fa-plus" style="margin-right: 4px;"></i>Hospital Expense
                     </button>
-                    <button class="btn btn-info" onclick="showCreateVoucherModal('ADJUSTMENT')">
-                        <i class="fas fa-plus" style="margin-right: 4px;"></i>Adjustment
+                    <button class="btn btn-info" onclick="createQuickTestVoucher()" style="margin-left: 10px;">
+                        <i class="fas fa-flask" style="margin-right: 4px;"></i>Quick Test
+                    </button>
+                    <button class="btn btn-secondary" onclick="testDeleteButtons()" style="margin-left: 5px;">
+                        <i class="fas fa-bug" style="margin-right: 4px;"></i>Test Buttons
+                    </button>
+                    <button class="btn btn-dark" onclick="addTestRowToTable()" style="margin-left: 5px;">
+                        <i class="fas fa-plus-circle" style="margin-right: 4px;"></i>Add Test Row
                     </button>
                 </div>
             </div>
