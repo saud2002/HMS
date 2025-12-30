@@ -494,6 +494,175 @@ def get_specializations(db: Session = Depends(get_db)):
     specs = db.query(Doctor.specialization).distinct().all()
     return [s[0] for s in specs if s[0]]
 
+# =====================================================
+# DOCTOR SCHEDULES ENDPOINTS (moved before parameterized routes)
+# =====================================================
+@app.get("/api/doctors/schedules")
+def get_all_doctor_schedules(db: Session = Depends(get_db)):
+    try:
+        print("🔍 Getting all doctor schedules...")
+        # Get all doctor schedules with doctor information
+        schedules = db.execute(text("""
+            SELECT 
+                ds.doctor_id,
+                d.doctor_name,
+                d.specialization,
+                ds.working_days,
+                ds.start_time,
+                ds.end_time,
+                ds.notes,
+                ds.created_at
+            FROM doctor_schedules ds
+            JOIN doctors d ON ds.doctor_id = d.doctor_id
+            WHERE d.status = 'Active'
+            ORDER BY d.doctor_name
+        """)).fetchall()
+        
+        print(f"🔍 Found {len(schedules)} schedules")
+        
+        result = []
+        for schedule in schedules:
+            # Convert timedelta to string format (HH:MM)
+            start_time = str(schedule.start_time) if schedule.start_time else "00:00:00"
+            end_time = str(schedule.end_time) if schedule.end_time else "00:00:00"
+            
+            # Remove seconds if present (e.g., "15:00:00" -> "15:00")
+            if start_time.count(':') == 2:
+                start_time = start_time.rsplit(':', 1)[0]
+            if end_time.count(':') == 2:
+                end_time = end_time.rsplit(':', 1)[0]
+            
+            result.append({
+                "doctor_id": schedule.doctor_id,
+                "doctor_name": schedule.doctor_name,
+                "specialization": schedule.specialization,
+                "working_days": schedule.working_days,
+                "start_time": start_time,
+                "end_time": end_time,
+                "notes": schedule.notes or "",
+                "created_at": schedule.created_at.isoformat() if schedule.created_at else None
+            })
+        
+        print(f"🔍 Returning: {result}")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error in get_all_doctor_schedules: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.post("/api/doctors/schedule")
+def save_doctor_schedule(schedule_data: dict, db: Session = Depends(get_db)):
+    try:
+        print(f"🔍 Received schedule data: {schedule_data}")
+        
+        doctor_id = schedule_data.get("doctor_id")
+        working_days = schedule_data.get("working_days")
+        start_time = schedule_data.get("start_time")
+        end_time = schedule_data.get("end_time")
+        notes = schedule_data.get("notes", "")
+        
+        print(f"🔍 Parsed data: doctor_id={doctor_id}, working_days={working_days}, start_time={start_time}, end_time={end_time}")
+        
+        if not all([doctor_id, working_days, start_time, end_time]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Check if doctor exists
+        doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        print(f"🔍 Doctor found: {doctor.doctor_name}")
+        
+        # Check if schedule already exists
+        existing_schedule = db.execute(text("""
+            SELECT * FROM doctor_schedules WHERE doctor_id = :doctor_id
+        """), {"doctor_id": doctor_id}).fetchone()
+        
+        if existing_schedule:
+            print("🔍 Updating existing schedule")
+            # Update existing schedule
+            db.execute(text("""
+                UPDATE doctor_schedules 
+                SET working_days = :working_days, start_time = :start_time, 
+                    end_time = :end_time, notes = :notes, updated_at = NOW()
+                WHERE doctor_id = :doctor_id
+            """), {
+                "doctor_id": doctor_id,
+                "working_days": working_days,
+                "start_time": start_time,
+                "end_time": end_time,
+                "notes": notes
+            })
+            message = "Schedule updated successfully"
+        else:
+            print("🔍 Creating new schedule")
+            # Create new schedule
+            db.execute(text("""
+                INSERT INTO doctor_schedules (doctor_id, working_days, start_time, end_time, notes, created_at)
+                VALUES (:doctor_id, :working_days, :start_time, :end_time, :notes, NOW())
+            """), {
+                "doctor_id": doctor_id,
+                "working_days": working_days,
+                "start_time": start_time,
+                "end_time": end_time,
+                "notes": notes
+            })
+            message = "Schedule created successfully"
+        
+        db.commit()
+        print(f"✅ {message}")
+        return {"message": message}
+        
+    except Exception as e:
+        print(f"❌ Error in save_doctor_schedule: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.get("/api/doctors/{doctor_id}/schedule")
+def get_doctor_schedule(doctor_id: str, db: Session = Depends(get_db)):
+    schedule = db.execute(text("""
+        SELECT * FROM doctor_schedules WHERE doctor_id = :doctor_id
+    """), {"doctor_id": doctor_id}).fetchone()
+    
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    # Convert timedelta to string format
+    start_time = str(schedule.start_time) if schedule.start_time else "00:00:00"
+    end_time = str(schedule.end_time) if schedule.end_time else "00:00:00"
+    
+    # Remove seconds if present
+    if start_time.count(':') == 2:
+        start_time = start_time.rsplit(':', 1)[0]
+    if end_time.count(':') == 2:
+        end_time = end_time.rsplit(':', 1)[0]
+    
+    return {
+        "doctor_id": schedule.doctor_id,
+        "working_days": schedule.working_days,
+        "start_time": start_time,
+        "end_time": end_time,
+        "notes": schedule.notes or ""
+    }
+
+@app.delete("/api/doctors/{doctor_id}/schedule")
+def delete_doctor_schedule(doctor_id: str, db: Session = Depends(get_db)):
+    # Check if schedule exists
+    existing_schedule = db.execute(text("""
+        SELECT * FROM doctor_schedules WHERE doctor_id = :doctor_id
+    """), {"doctor_id": doctor_id}).fetchone()
+    
+    if not existing_schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    # Delete the schedule
+    db.execute(text("""
+        DELETE FROM doctor_schedules WHERE doctor_id = :doctor_id
+    """), {"doctor_id": doctor_id})
+    
+    db.commit()
+    return {"message": "Schedule deleted successfully"}
+
 @app.get("/api/doctors/{doctor_id}", response_model=DoctorResponse)
 def get_doctor(doctor_id: str, db: Session = Depends(get_db)):
     doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
