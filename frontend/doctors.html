@@ -59,47 +59,54 @@
 
     <!-- Doctor Modal -->
     <div class="modal" id="doctorModal">
-        <div class="modal-content">
+        <div class="modal-content modal-medium">
             <div class="modal-header">
                 <h2 id="doctorModalTitle">Add New Doctor</h2>
-                <button class="modal-close" onclick="closeDoctorModal()">×</button>
+                <button class="modal-close" onclick="ModalManager.close('doctorModal')" aria-label="Close modal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
-            <form id="doctorForm" onsubmit="saveDoctor(event)">
-                <input type="hidden" id="doctorEditId">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Doctor ID * (Auto-generated)</label>
-                        <input type="text" id="doctorId" required placeholder="Auto-generated" readonly>
+            <div class="modal-body">
+                <form id="doctorForm" onsubmit="saveDoctor(event)">
+                    <input type="hidden" id="doctorEditId">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Doctor ID * (Auto-generated)</label>
+                            <input type="text" id="doctorId" required placeholder="Auto-generated" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Doctor Name *</label>
+                            <input type="text" id="doctorName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Specialization *</label>
+                            <input type="text" id="doctorSpecialization" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Consultation Fee ($) *</label>
+                            <input type="number" id="doctorFee" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Hospital Charges ($) *</label>
+                            <input type="number" id="doctorHospitalCharges" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="doctorStatus">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>Doctor Name *</label>
-                        <input type="text" id="doctorName" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Specialization *</label>
-                        <input type="text" id="doctorSpecialization" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Consultation Fee ($) *</label>
-                        <input type="number" id="doctorFee" min="0" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Hospital Charges ($) *</label>
-                        <input type="number" id="doctorHospitalCharges" min="0" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select id="doctorStatus">
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-                <div style="margin-top: 20px; display: flex; gap: 10px;">
-                    <button type="submit" class="btn btn-success">Save Doctor</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeDoctorModal()">Cancel</button>
-                </div>
-            </form>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="ModalManager.close('doctorModal')">Cancel</button>
+                <button type="submit" form="doctorForm" class="btn btn-success">Save Doctor</button>
+            </div>
         </div>
     </div>
 
@@ -221,7 +228,7 @@
 
         // Open modal
         async function openDoctorModal(id = null) {
-            document.getElementById('doctorModal').classList.add('active');
+            ModalManager.open('doctorModal', 'medium');
             document.getElementById('doctorForm').reset();
             document.getElementById('doctorEditId').value = '';
             document.getElementById('doctorModalTitle').textContent = 'Add New Doctor';
@@ -257,7 +264,7 @@
 
         // Close modal
         function closeDoctorModal() {
-            document.getElementById('doctorModal').classList.remove('active');
+            ModalManager.close('doctorModal');
         }
 
         // Save doctor
@@ -284,7 +291,7 @@
                     showToast('Doctor added successfully!', 'success');
                 }
 
-                closeDoctorModal();
+                ModalManager.close('doctorModal');
                 await renderDoctors(); // Reload from database
             } catch (error) {
                 console.error('Error saving doctor:', error);

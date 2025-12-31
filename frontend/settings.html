@@ -68,13 +68,18 @@
 
     <!-- Add/Edit Service Modal -->
     <div id="serviceModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-medium">
             <div class="modal-header">
                 <h3 id="modalTitle">Add New Service</h3>
-                <button class="close-btn" onclick="closeServiceModal()">&times;</button>
+                <button class="modal-close" onclick="ModalManager.close('serviceModal')" aria-label="Close modal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
-            <form id="serviceForm" onsubmit="saveService(event)">
-                <div class="modal-body">
+            <div class="modal-body">
+                <form id="serviceForm" onsubmit="saveService(event)">
                     <div class="form-group">
                         <label for="serviceName">Service Name *</label>
                         <input type="text" id="serviceName" required class="form-control" placeholder="e.g., X-Ray, Blood Test">
@@ -100,24 +105,29 @@
                             <option value="Other">Other</option>
                         </select>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeServiceModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Service</button>
-                </div>
-            </form>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="ModalManager.close('serviceModal')">Cancel</button>
+                <button type="submit" form="serviceForm" class="btn btn-primary">Save Service</button>
+            </div>
         </div>
     </div>
 
     <!-- Doctor Schedule Modal -->
     <div id="scheduleModal" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content modal-large">
             <div class="modal-header">
                 <h3 id="scheduleModalTitle">Add Doctor Schedule</h3>
-                <button class="close-btn" onclick="closeScheduleModal()">&times;</button>
+                <button class="modal-close" onclick="ModalManager.close('scheduleModal')" aria-label="Close modal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
-            <form id="scheduleForm" onsubmit="saveSchedule(event)">
-                <div class="modal-body">
+            <div class="modal-body">
+                <form id="scheduleForm" onsubmit="saveSchedule(event)">
                     <div class="form-group">
                         <label for="scheduleDoctor">Select Doctor *</label>
                         <select id="scheduleDoctor" required class="form-control">
@@ -168,12 +178,12 @@
                         <label for="scheduleNotes">Notes (Optional)</label>
                         <textarea id="scheduleNotes" class="form-control" rows="2" placeholder="Additional notes about the schedule"></textarea>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Schedule</button>
-                </div>
-            </form>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="ModalManager.close('scheduleModal')">Cancel</button>
+                <button type="submit" form="scheduleForm" class="btn btn-primary">Save Schedule</button>
+            </div>
         </div>
     </div>
 
@@ -232,11 +242,11 @@
             currentEditingService = null;
             document.getElementById('modalTitle').textContent = 'Add New Service';
             document.getElementById('serviceForm').reset();
-            document.getElementById('serviceModal').classList.add('active');
+            ModalManager.open('serviceModal', 'medium');
         }
 
         function closeServiceModal() {
-            document.getElementById('serviceModal').classList.remove('active');
+            ModalManager.close('serviceModal');
         }
 
         async function saveService(event) {
@@ -261,7 +271,7 @@
 
                 if (response.ok) {
                     showToast(currentEditingService ? 'Service updated!' : 'Service added!', 'success');
-                    closeServiceModal();
+                    ModalManager.close('serviceModal');
                     loadServices();
                 }
             } catch (error) {
@@ -281,7 +291,7 @@
                 document.getElementById('serviceDescription').value = service.description || '';
                 document.getElementById('servicePrice').value = service.price;
                 document.getElementById('serviceCategory').value = service.category;
-                document.getElementById('serviceModal').classList.add('active');
+                ModalManager.open('serviceModal', 'medium');
             } catch (error) {
                 console.error('Error loading service:', error);
                 showToast('Error loading service', 'error');
@@ -385,11 +395,11 @@
             document.getElementById('scheduleModalTitle').textContent = 'Add Doctor Schedule';
             document.getElementById('scheduleForm').reset();
             loadDoctorsForSchedule();
-            document.getElementById('scheduleModal').classList.add('active');
+            ModalManager.open('scheduleModal', 'large');
         }
 
         function closeScheduleModal() {
-            document.getElementById('scheduleModal').classList.remove('active');
+            ModalManager.close('scheduleModal');
         }
 
         async function saveSchedule(event) {
@@ -414,7 +424,7 @@
             try {
                 const result = await API.Doctors.saveSchedule(formData);
                 showToast('Schedule saved successfully!', 'success');
-                closeScheduleModal();
+                ModalManager.close('scheduleModal');
                 loadDoctorSchedules();
             } catch (error) {
                 console.error('Error saving schedule:', error);
@@ -440,7 +450,7 @@
                 });
                 
                 loadDoctorsForSchedule();
-                document.getElementById('scheduleModal').classList.add('active');
+                ModalManager.open('scheduleModal', 'large');
             } catch (error) {
                 console.error('Error loading schedule:', error);
                 showToast('Error loading schedule', 'error');

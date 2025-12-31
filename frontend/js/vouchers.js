@@ -252,7 +252,7 @@ function showCreateVoucherModal(type) {
     document.getElementById('createVoucherForm').reset();
     document.getElementById('voucherDate').value = new Date().toISOString().split('T')[0];
     
-    openModal('createVoucherModal');
+    ModalManager.open('createVoucherModal', 'large');
 }
 
 // Create voucher
@@ -286,7 +286,7 @@ async function createVoucher() {
         if (response.ok) {
             const result = await response.json();
             showAlert(`Voucher ${result.voucher_number} created successfully`, 'success');
-            closeModal('createVoucherModal');
+            ModalManager.close('createVoucherModal');
             loadVouchers();
             loadVoucherSummary();
         } else {
@@ -306,7 +306,7 @@ async function viewVoucher(voucherId) {
         if (response.ok) {
             const voucher = await response.json();
             displayVoucherDetails(voucher);
-            openModal('viewVoucherModal');
+            ModalManager.open('viewVoucherModal', 'large');
         } else {
             throw new Error('Failed to load voucher details');
         }
