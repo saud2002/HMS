@@ -1731,11 +1731,22 @@ def get_voucher(voucher_id: int, db: Session = Depends(get_db)):
 def create_voucher(voucher: VoucherCreate, db: Session = Depends(get_db)):
     """Create new voucher"""
     try:
+        # Validate required fields for DOCTOR_PAYMENT vouchers
+        if voucher.voucher_type == "DOCTOR_PAYMENT":
+            if not voucher.doctor_id:
+                raise HTTPException(status_code=400, detail="Doctor selection is required for doctor payment vouchers")
+        
+        # Validate amount is positive
+        if voucher.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
         # Validate doctor exists if doctor_id provided
         if voucher.doctor_id:
             doctor = db.query(Doctor).filter(Doctor.doctor_id == voucher.doctor_id).first()
             if not doctor:
                 raise HTTPException(status_code=404, detail="Doctor not found")
+            if doctor.status != "Active":
+                raise HTTPException(status_code=400, detail="Selected doctor is not active")
         
         # Generate voucher number
         voucher_number = generate_voucher_number(db, voucher.voucher_type)
