@@ -878,8 +878,16 @@ def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found or inactive")
     
-    # Generate token number
-    token_number = generate_token_number(db, appointment.doctor_id, appointment.appointment_date)
+    # Use manual token number if provided, otherwise auto-generate
+    if appointment.token_number:
+        # Check if token number already exists
+        existing = db.query(Appointment).filter(Appointment.token_number == appointment.token_number).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Token number '{appointment.token_number}' already exists")
+        token_number = appointment.token_number
+    else:
+        # Generate token number automatically
+        token_number = generate_token_number(db, appointment.doctor_id, appointment.appointment_date)
     
     # Get doctor's consultation charges and hospital charges
     doctor_charges = float(doctor.consultation_charges)

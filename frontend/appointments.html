@@ -62,6 +62,11 @@
                         <input type="text" id="appointmentHospitalCharges" readonly>
                     </div>
                     <div class="form-group">
+                        <label>Token Number (Optional)</label>
+                        <input type="text" id="appointmentTokenNumber" placeholder="Leave empty for auto-generate" maxlength="50">
+                        <small style="color: #64748b; font-size: 12px;">Leave empty to auto-generate</small>
+                    </div>
+                    <div class="form-group">
                         <label>Appointment Status *</label>
                         <select id="appointmentStatus">
                             <option value="Scheduled">Scheduled</option>
@@ -436,6 +441,9 @@
                 // Get appointment status
                 const appointmentStatus = document.getElementById('appointmentStatus').value;
                 
+                // Get manual token number if provided
+                const manualToken = document.getElementById('appointmentTokenNumber').value.trim();
+                
                 // Create appointment
                 const appointmentData = {
                     patient_id: patientId,
@@ -443,6 +451,11 @@
                     appointment_date: new Date().toISOString().split('T')[0], // Today's date
                     status: appointmentStatus
                 };
+                
+                // Add token number only if manually provided
+                if (manualToken) {
+                    appointmentData.token_number = manualToken;
+                }
 
                 console.log('🔍 Appointment data:', appointmentData);
                 const appointment = await API.Appointments.create(appointmentData);
@@ -537,6 +550,7 @@
                 // Reset form
                 document.getElementById('appointmentPatient').value = '';
                 document.getElementById('appointmentDoctor').value = '';
+                document.getElementById('appointmentTokenNumber').value = '';
                 document.getElementById('appointmentStatus').value = 'Scheduled'; // Reset to default
                 await fillPatientDetails();
                 await fillDoctorDetails();
