@@ -145,7 +145,7 @@ function renderSidebar() {
             <div class="logo-icon">
                 <svg viewBox="0 0 24 24">${ICONS.hospital}</svg>
             </div>
-            <div class="logo-text">HMS Portal</div>
+            <div class="logo-text">PANACEA Nursing Home</div>
         </div>
         <div class="menu">
             <a class="menu-item ${currentPage === 'index.html' || window.location.pathname === '/' ? 'active' : ''}" href="/">

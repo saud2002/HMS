@@ -9,12 +9,19 @@ class AppointmentCreate(BaseModel):
     patient_id: int = Field(..., gt=0)
     doctor_id: str = Field(..., min_length=1, max_length=20)
     appointment_date: date
+    token_number: Optional[str] = Field(None, max_length=50)  # Optional manual token number
     
     @validator('appointment_date')
     def validate_appointment_date(cls, v):
         if v < date.today():
             raise ValueError('Appointment date cannot be in the past')
         return v
+    
+    @validator('token_number')
+    def validate_token_number(cls, v):
+        if v is not None and v.strip() == '':
+            raise ValueError('Token number cannot be empty')
+        return v.strip() if v else None
 
 class AppointmentResponse(BaseModel):
     appointment_id: int
