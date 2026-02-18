@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Management - HMS</title>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
+
 <body>
     <div class="sidebar" id="sidebar"></div>
     <div class="topbar" id="topbar"></div>
@@ -13,9 +15,11 @@
     <div class="main-content">
         <!-- Search & Add -->
         <div class="card no-print">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 <div class="search-box" style="flex: 1; min-width: 250px; margin: 0;">
-                    <input type="text" id="patientSearch" placeholder="Search by name, NIC, or phone..." onkeyup="searchPatients()">
+                    <input type="text" id="patientSearch" placeholder="Search by name, NIC, or phone..."
+                        onkeyup="searchPatients()">
                 </div>
                 <button class="btn btn-primary" onclick="openPatientModal()">+ Add New Patient</button>
             </div>
@@ -79,8 +83,11 @@
                         </div>
                         <div class="form-group">
                             <label>Phone Number * (10 digits only)</label>
-                            <input type="tel" id="patientPhone" pattern="[0-9]{10}" maxlength="10" title="Please enter exactly 10 digits" placeholder="1234567890" required oninput="validatePhoneNumber(this)">
-                            <small id="phoneError" style="color: red; display: none;">Phone number must be exactly 10 digits</small>
+                            <input type="tel" id="patientPhone" pattern="[0-9]{10}" maxlength="10"
+                                title="Please enter exactly 10 digits" placeholder="1234567890" required
+                                oninput="validatePhoneNumber(this)">
+                            <small id="phoneError" style="color: red; display: none;">Phone number must be exactly 10
+                                digits</small>
                         </div>
                         <div class="form-group">
                             <label>NIC Number *</label>
@@ -90,7 +97,8 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="ModalManager.close('patientModal')">Cancel</button>
+                <button type="button" class="btn btn-secondary"
+                    onclick="ModalManager.close('patientModal')">Cancel</button>
                 <button type="submit" form="patientForm" class="btn btn-success">Save Patient</button>
             </div>
         </div>
@@ -98,6 +106,7 @@
 
     <script src="/static/js/data.js"></script>
     <script src="/static/js/common.js"></script>
+    <script src="/static/js/api.js"></script>
     <script>
         // Render patients table
         async function renderPatients(list = null) {
@@ -171,15 +180,15 @@
         function validatePhoneNumber(input) {
             const phoneError = document.getElementById('phoneError');
             const value = input.value;
-            
+
             // Remove any non-digit characters
             const digitsOnly = value.replace(/\D/g, '');
-            
+
             // Update input with digits only
             if (digitsOnly !== value) {
                 input.value = digitsOnly;
             }
-            
+
             // Validate length
             if (digitsOnly.length === 0) {
                 phoneError.style.display = 'none';
@@ -197,19 +206,19 @@
         // Save patient
         async function savePatient(e) {
             e.preventDefault();
-            
+
             // Validate phone number before saving
             const phoneInput = document.getElementById('patientPhone');
             const phoneValue = phoneInput.value.replace(/\D/g, '');
-            
+
             if (phoneValue.length !== 10) {
                 showToast('Phone number must be exactly 10 digits', 'error');
                 phoneInput.focus();
                 return;
             }
-            
+
             const editId = document.getElementById('patientEditId').value;
-            
+
             const data = {
                 patient_name: document.getElementById('patientName').value,
                 age: parseInt(document.getElementById('patientAge').value),
@@ -230,7 +239,7 @@
                     const newPatient = await API.Patients.create(data);
                     showToast('Patient registered successfully! Redirecting to appointments...', 'success');
                     ModalManager.close('patientModal');
-                    
+
                     // Redirect to appointments page after 1.5 seconds
                     setTimeout(() => {
                         window.location.href = `/appointments.html?new_patient=${newPatient.patient_id}`;
@@ -265,11 +274,11 @@
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             renderPatients();
             checkUrlParams();
         });
     </script>
-    <script src="/static/js/api.js"></script>
 </body>
+
 </html>

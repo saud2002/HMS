@@ -104,7 +104,8 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="ModalManager.close('doctorModal')">Cancel</button>
+                <button type="button" class="btn btn-secondary"
+                    onclick="ModalManager.close('doctorModal')">Cancel</button>
                 <button type="submit" form="doctorForm" class="btn btn-success">Save Doctor</button>
             </div>
         </div>
@@ -112,6 +113,7 @@
 
     <script src="/static/js/data.js"></script>
     <script src="/static/js/common.js"></script>
+    <script src="/static/js/api.js"></script>
     <script>
         // Render doctors table
         async function renderDoctors(list = null) {
@@ -354,7 +356,6 @@
             checkUrlParams();
         });
     </script>
-    <script src="/static/js/api.js"></script>
 </body>
 
 </html>

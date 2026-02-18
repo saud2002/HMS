@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HMS Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .loading { color: #3b82f6; }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #2563eb; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏥 HMS Connection Test</h1>
+    
+    <div class="test-box">
+        <h3>1. API Health Check</h3>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="healthResult"></div>
+    </div>
+    
+    <div class="test-box">
+        <h3>2. Dashboard Stats</h3>
+        <button onclick="testDashboard()">Test Dashboard</button>
+        <div id="dashboardResult"></div>
+    </div>
+    
+    <div class="test-box">
+        <h3>3. Get Patients</h3>
+        <button onclick="testPatients()">Test Patients API</button>
+        <div id="patientsResult"></div>
+    </div>
+    
+    <div class="test-box">
+        <h3>4. Get Doctors</h3>
+        <button onclick="testDoctors()">Test Doctors API</button>
+        <div id="doctorsResult"></div>
+    </div>
+    
+    <div class="test-box">
+        <h3>5. Get Services</h3>
+        <button onclick="testServices()">Test Services API</button>
+        <div id="servicesResult"></div>
+    </div>
+    
+    <div class="test-box">
+        <h3>Console Logs</h3>
+        <div id="console" style="background: #1e293b; color: #e2e8f0; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        const consoleDiv = document.getElementById('console');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6';
+            consoleDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        async function testEndpoint(name, url, resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.innerHTML = '<p class="loading">⏳ Testing...</p>';
+            log(`Testing ${name}: ${url}`);
+            
+            try {
+                const response = await fetch(url);
+                log(`Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`✅ ${name} successful`, 'success');
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Success!</p>
+                    <p>Status: ${response.status}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                log(`❌ ${name} failed: ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <p class="error">❌ Error: ${error.message}</p>
+                `;
+            }
+        }
+        
+        function testHealth() {
+            testEndpoint('Health Check', `${API_BASE}/health`, 'healthResult');
+        }
+        
+        function testDashboard() {
+            testEndpoint('Dashboard Stats', `${API_BASE}/dashboard/stats`, 'dashboardResult');
+        }
+        
+        function testPatients() {
+            testEndpoint('Patients', `${API_BASE}/patients`, 'patientsResult');
+        }
+        
+        function testDoctors() {
+            testEndpoint('Doctors', `${API_BASE}/doctors`, 'doctorsResult');
+        }
+        
+        function testServices() {
+            testEndpoint('Services', `${API_BASE}/services`, 'servicesResult');
+        }
+        
+        // Auto-run all tests on load
+        window.addEventListener('load', () => {
+            log('=== HMS Connection Test Started ===');
+            log(`Testing API at: ${window.location.origin}${API_BASE}`);
+        });
+    </script>
+</body>
+</html>
