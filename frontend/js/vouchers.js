@@ -8,6 +8,60 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set default date to today
     document.getElementById('voucherDate').value = new Date().toISOString().split('T')[0];
     
+    // Add event listeners for real-time validation
+    const amountField = document.getElementById('amount');
+    const doctorField = document.getElementById('doctorId');
+    const voucherDateField = document.getElementById('voucherDate');
+    
+    if (amountField) {
+        amountField.addEventListener('blur', function() {
+            const value = this.value.trim();
+            if (!value) {
+                showFieldError('amount', 'Please enter amount field');
+            } else if (parseFloat(value) <= 0) {
+                showFieldError('amount', 'Amount must be greater than 0');
+            } else {
+                clearFieldError('amount');
+            }
+        });
+        
+        amountField.addEventListener('input', function() {
+            if (this.value.trim()) {
+                clearFieldError('amount');
+            }
+        });
+    }
+    
+    if (doctorField) {
+        doctorField.addEventListener('change', function() {
+            const voucherType = document.getElementById('voucherType').value;
+            if (voucherType === 'DOCTOR_PAYMENT') {
+                if (!this.value.trim()) {
+                    showFieldError('doctorId', 'Please select a doctor');
+                } else {
+                    clearFieldError('doctorId');
+                }
+            }
+        });
+    }
+    
+    if (voucherDateField) {
+        voucherDateField.addEventListener('blur', function() {
+            const value = this.value.trim();
+            if (!value) {
+                showFieldError('voucherDate', 'Please select voucher date');
+            } else {
+                clearFieldError('voucherDate');
+            }
+        });
+        
+        voucherDateField.addEventListener('change', function() {
+            if (this.value.trim()) {
+                clearFieldError('voucherDate');
+            }
+        });
+    }
+    
     // Load initial data
     loadDoctors();
     loadVoucherSummary();
@@ -252,12 +306,23 @@ function showCreateVoucherModal(type) {
     document.getElementById('createVoucherForm').reset();
     document.getElementById('voucherDate').value = new Date().toISOString().split('T')[0];
     
+    // Clear any previous validation errors
+    clearValidationErrors();
+    
     ModalManager.open('createVoucherModal', 'large');
 }
 
 // Create voucher
 async function createVoucher() {
     try {
+        // Clear previous errors
+        clearValidationErrors();
+        
+        // Validate form before submission
+        if (!validateVoucherForm()) {
+            return; // Stop if validation fails
+        }
+        
         const form = document.getElementById('createVoucherForm');
         const formData = new FormData(form);
         
@@ -298,6 +363,90 @@ async function createVoucher() {
         showAlert(error.message, 'danger');
     }
 }
+
+// Validate voucher form
+function validateVoucherForm() {
+    let isValid = true;
+    
+    // Validate voucher date field
+    const voucherDateField = document.getElementById('voucherDate');
+    const voucherDateValue = voucherDateField.value.trim();
+    
+    if (!voucherDateValue) {
+        showFieldError('voucherDate', 'Please select voucher date');
+        isValid = false;
+    } else {
+        clearFieldError('voucherDate');
+    }
+    
+    // Validate amount field
+    const amountField = document.getElementById('amount');
+    const amountValue = amountField.value.trim();
+    
+    if (!amountValue) {
+        showFieldError('amount', 'Please enter amount field');
+        isValid = false;
+    } else if (parseFloat(amountValue) <= 0) {
+        showFieldError('amount', 'Amount must be greater than 0');
+        isValid = false;
+    } else {
+        clearFieldError('amount');
+    }
+    
+    // Validate doctor field for DOCTOR_PAYMENT vouchers
+    const voucherType = document.getElementById('voucherType').value;
+    if (voucherType === 'DOCTOR_PAYMENT') {
+        const doctorField = document.getElementById('doctorId');
+        const doctorValue = doctorField.value.trim();
+        
+        if (!doctorValue) {
+            showFieldError('doctorId', 'Please select a doctor');
+            isValid = false;
+        } else {
+            clearFieldError('doctorId');
+        }
+    }
+    
+    return isValid;
+}
+
+// Show field error
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorDiv = document.getElementById(fieldId + 'Error');
+    
+    // Set red border
+    field.style.border = '2px solid #ef4444';
+    
+    // Show error message
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+// Clear field error
+function clearFieldError(fieldId) {
+    const field = document.getElementById(fieldId);
+    const errorDiv = document.getElementById(fieldId + 'Error');
+    
+    // Reset border to normal
+    field.style.border = '2px solid #e2e8f0';
+    
+    // Hide error message
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
+}
+
+// Clear all validation errors
+function clearValidationErrors() {
+    clearFieldError('voucherDate');
+    clearFieldError('amount');
+    clearFieldError('doctorId');
+}
+
+
 
 // View voucher details
 async function viewVoucher(voucherId) {
@@ -497,14 +646,52 @@ async function deleteVoucher(voucherId, voucherNumber) {
 // Utility functions
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+    }
+    
+    // Format date in Sri Lankan timezone
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'Asia/Colombo'
+    });
 }
 
 function formatDateTime(dateTimeString) {
     if (!dateTimeString) return 'N/A';
-    return new Date(dateTimeString).toLocaleString();
-}
+    
+    // FIX: If the time string is missing the 'Z' (UTC marker), add it.
+    // This forces the browser to convert 07:20 UTC -> 12:50 Sri Lanka Time
+    if (dateTimeString.indexOf('Z') === -1 && dateTimeString.indexOf('+') === -1) {
+        dateTimeString += 'Z';
+    }
 
+    // Create a new Date object
+    const date = new Date(dateTimeString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+    }
+    
+    // Convert specifically to Sri Lanka TimeZone
+    const options = { 
+        timeZone: 'Asia/Colombo',
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit',
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: true 
+    };
+    
+    return date.toLocaleString('en-LK', options);
+}
 function showAlert(message, type) {
     // Create alert element
     const alertDiv = document.createElement('div');

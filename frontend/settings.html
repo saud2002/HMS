@@ -91,7 +91,7 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="servicePrice">Price (Rs.) *</label>
+                        <label for="servicePrice">Price (LKR) *</label>
                         <input type="number" id="servicePrice" required class="form-control" step="0.01" min="0" placeholder="0.00">
                     </div>
                     
@@ -211,7 +211,7 @@
                         <span class="service-category">${service.category || 'Other'}</span>
                         <div class="service-header">
                             <h4>${service.name}</h4>
-                            <span class="service-price">Rs. ${parseFloat(service.price).toFixed(2)}</span>
+                            <span class="service-price">LKR ${parseFloat(service.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                         <p class="service-description">${service.description || 'No description provided'}</p>
                         <div class="service-actions">

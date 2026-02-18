@@ -16,16 +16,15 @@
             <button class="tab-btn active" onclick="showTab('new')">New Appointment</button>
             <button class="tab-btn" onclick="showTab('list')">Today's Appointments</button>
             <button class="tab-btn" onclick="showTab('all')">All Appointments</button>
-             <button type="button" class="btn btn-secondary" onclick="openAddPatientModal()" title="Add New Patient">
-                                + New Patient
-                            </button>
+            <button type="button" class="btn btn-secondary" onclick="openAddPatientModal()" title="Add New Patient">
+                + New Patient
+            </button>
         </div>
 
         <!-- New Appointment Tab -->
         <div id="newTab">
             <div class="card">
                 <div class="card-title">📅 Create New Appointment</div>
-               
                
                 <div class="form-grid">
                     <div class="form-group">
@@ -34,7 +33,6 @@
                             <select id="appointmentPatient" onchange="fillPatientDetails()" style="flex: 1;">
                                 <option value="">-- Select Patient --</option>
                             </select>
-                            
                         </div>
                     </div>
                     <div class="form-group">
@@ -74,19 +72,6 @@
                     </div>
                 </div>
 
-                <div class="card-title" style="margin-top: 20px;">📋 Appointment Details</div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Appointment Status</label>
-                        <select id="appointmentStatus">
-                            <option value="Scheduled">Scheduled</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Cancelled">Cancelled</option>
-                            <option value="No Show">No Show</option>
-                        </select>
-                    </div>
-                </div>
-
                 <div class="card-title" style="margin-top: 20px;">🩺 Additional Services</div>
                 <div class="checkbox-group" id="servicesCheckboxGroup">
                     <!-- Services will be loaded dynamically from settings -->
@@ -98,7 +83,6 @@
             </div>
         </div>
 
-        
         <!-- Today's Appointments Tab -->
         <div id="listTab" style="display: none;">
             <div class="card">
@@ -276,7 +260,7 @@
             </div>
             <div class="modal-footer no-print">
                 <button class="btn btn-secondary" onclick="ModalManager.close('billModal')">Close</button>
-                <button class="btn btn-primary" onclick="window.print()">🖨️ Print Bill</button>
+                <button class="btn btn-primary" onclick="printBill()">🖨️ Print Bill</button>
             </div>
         </div>
     </div>
@@ -365,7 +349,7 @@
                 container.innerHTML = services.map(service => `
                     <label class="checkbox-item">
                         <input type="checkbox" id="svc_${service.id}" value="${service.price}" data-service-id="${service.id}" data-service-name="${String(service.name).replace(/"/g, '&quot;')}">
-                        ${service.name} (Rs. ${parseFloat(service.price).toFixed(2)})
+                        ${service.name} (LKR ${parseFloat(service.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                     </label>
                 `).join('');
                 
@@ -408,8 +392,8 @@
             try {
                 const d = await API.Doctors.getById(doctorId);
                 document.getElementById('appointmentSpecialization').value = d ? d.specialization : '';
-                document.getElementById('appointmentDoctorFee').value = d ? 'Rs. ' + d.consultation_charges : '';
-                document.getElementById('appointmentHospitalCharges').value = d ? 'Rs. ' + d.hospital_charges : '';
+                document.getElementById('appointmentDoctorFee').value = d ? 'LKR ' + parseFloat(d.consultation_charges).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+                document.getElementById('appointmentHospitalCharges').value = d ? 'LKR ' + parseFloat(d.hospital_charges).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
             } catch (error) {
                 console.error('Error loading doctor details:', error);
                 document.getElementById('appointmentSpecialization').value = '';
@@ -422,16 +406,12 @@
         function formatTokenNumber(tokenNumber) {
             if (!tokenNumber) return 'N/A';
             
-            // Split token number by the last dash to get the last 3 digits
             const parts = tokenNumber.split('-');
-            if (parts.length >= 3) {
-                const lastPart = parts[parts.length - 1]; // Get last part (e.g., "001")
-                const restParts = parts.slice(0, -1).join('-'); // Get everything before last part
-                
-                return `${restParts}-<span style="font-size: 1.5em; font-weight: bold; color: #2563eb;">${lastPart}</span>`;
+            if (parts.length > 0) {
+                const lastPart = parts[parts.length - 1];
+                return `<span style="font-size: 1em; font-weight: bold; color: #2563eb;">${lastPart}</span>`;
             }
             
-            // Fallback if token format is different
             return tokenNumber;
         }
 
@@ -479,7 +459,7 @@
                     // Get service name safely - fallback to parsing from text content
                     let serviceName = checkbox.dataset.serviceName;
                     if (!serviceName || serviceName === '[object Object]') {
-                        serviceName = checkbox.parentElement.textContent.split('(Rs.')[0].trim();
+                        serviceName = checkbox.parentElement.textContent.split('(LKR')[0].trim();
                     }
                     
                     // Validate service data
@@ -561,69 +541,126 @@
                 await fillPatientDetails();
                 await fillDoctorDetails();
                 document.querySelectorAll('#servicesCheckboxGroup input[type="checkbox"]').forEach(cb => cb.checked = false);
-
             } catch (error) {
                 console.error('Error creating appointment:', error);
                 showToast(error.message || 'Failed to create appointment', 'error');
             }
         }
 
-        // Generate bill HTML
+        // Generate bill HTML with Modern UI
         function generateBillHTML(appt) {
-            const billDate = new Date().toLocaleDateString();
-            const billTime = new Date().toLocaleTimeString();
-            
+            // Get current Sri Lankan time
+            const now = new Date();
+            const billDate = now.toLocaleDateString('en-US', {
+                timeZone: 'Asia/Colombo'
+            });
+            const billTime = now.toLocaleTimeString('en-US', {
+                timeZone: 'Asia/Colombo',
+                hour12: true
+            });
+
+            // Extract just the last 3 digits for the Big Token display
+            let tokenDisplay = 'N/A';
+            if (appt.token_number) {
+                const parts = appt.token_number.split('-');
+                if (parts.length > 0) {
+                    const lastPart = parts[parts.length - 1];
+                    // parseInt converts "007" -> 7, "050" -> 50
+                    const numberValue = parseInt(lastPart, 10);
+                    tokenDisplay = isNaN(numberValue) ? lastPart : numberValue;
+                } else {
+                    tokenDisplay = appt.token_number;
+                }
+            }
+
             return `
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h3>🏥 Hospital Management System</h3>
-                    <p><strong>Invoice / Bill</strong></p>
-                    <p>Date: ${billDate} | Time: ${billTime}</p>
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <strong>Token Number:</strong> ${formatTokenNumber(appt.token_number)}<br>
-                    <strong>Patient:</strong> ${appt.patient ? appt.patient.patient_name : 'N/A'}<br>
-                    <strong>Age:</strong> ${appt.patient ? appt.patient.age : 'N/A'}<br>
-                    <strong>NIC:</strong> ${appt.patient ? appt.patient.nic : 'N/A'}<br>
-                    <strong>Phone:</strong> ${appt.patient ? appt.patient.phone_number : 'N/A'}
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <strong>Doctor:</strong> ${appt.doctor ? appt.doctor.doctor_name : 'N/A'}<br>
-                    <strong>Specialization:</strong> ${appt.doctor ? appt.doctor.specialization : 'N/A'}
-                </div>
-                
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-                    <thead>
-                        <tr style="background: #f5f5f5;">
-                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Service</th>
-                            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="border: 1px solid #ddd; padding: 8px;">Doctor Consultation</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${parseFloat(appt.doctor_charges).toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: 1px solid #ddd; padding: 8px;">Hospital Charges</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${parseFloat(appt.hospital_charges).toFixed(2)}</td>
-                        </tr>
-                        ${appt.additional_expenses ? appt.additional_expenses.map(exp => `
-                            <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${exp.service_description}</td>
-                                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${parseFloat(exp.amount).toFixed(2)}</td>
+                <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333;">
+                    <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">
+                        <h2 style="margin: 0; color: #1e293b; font-size: 24px;">🏥 Hospital Management System</h2>
+                        <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Invoice / Receipt</p>
+                        <p style="margin: 2px 0; color: #94a3b8; font-size: 12px;">${billDate} | ${billTime}</p>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+                        
+                        <div style="flex: 1; padding-right: 20px;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 13px; width: 80px;">Patient:</td>
+                                    <td style="padding: 4px 0; font-weight: 600; font-size: 14px;">${appt.patient ? appt.patient.patient_name : 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 13px;">Age/Sex:</td>
+                                    <td style="padding: 4px 0; font-weight: 600; font-size: 14px;">${appt.patient ? appt.patient.age : 'N/A'} / ${appt.patient ? appt.patient.gender || '-' : '-'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 13px;">Phone:</td>
+                                    <td style="padding: 4px 0; font-weight: 600; font-size: 14px;">${appt.patient ? appt.patient.phone_number : 'N/A'}</td>
+                                </tr>
+                                <tr><td colspan="2" style="height: 10px;"></td></tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 13px;">Doctor:</td>
+                                    <td style="padding: 4px 0; font-weight: 600; font-size: 14px; color: #0f172a;">${appt.doctor ? appt.doctor.doctor_name : 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 0; color: #64748b; font-size: 13px;">Speciality:</td>
+                                    <td style="padding: 4px 0; font-weight: 600; font-size: 14px;">${appt.doctor ? appt.doctor.specialization : 'N/A'}</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div style="flex: 0 0 120px; text-align: center;">
+                            <div style="border: 2px solid #2563eb; border-radius: 12px; overflow: hidden;">
+                                <div style="background: #2563eb; color: white; padding: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+                                    TOKEN
+                                </div>
+                                <div style="padding: 10px 0; background: #fff;">
+                                    <span style="display: block; font-size: 48px; font-weight: 800; line-height: 1; color: #2563eb;">
+                                        ${tokenDisplay}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 14px;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding: 12px; text-align: left; color: #475569; font-weight: 600;">Service Description</th>
+                                <th style="padding: 12px; text-align: right; color: #475569; font-weight: 600;">Amount</th>
                             </tr>
-                        `).join('') : ''}
-                        <tr style="background: #f0f0f0; font-weight: bold;">
-                            <td style="border: 1px solid #ddd; padding: 8px;">Total Amount</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${appt.bill ? parseFloat(appt.bill.total_amount).toFixed(2) : (parseFloat(appt.doctor_charges) + parseFloat(appt.hospital_charges)).toFixed(2)}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                
-                <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #666;">
-                    Thank you for choosing our hospital!
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                <td style="padding: 12px;">Doctor Consultation</td>
+                                <td style="padding: 12px; text-align: right;">LKR ${parseFloat(appt.doctor_charges).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                <td style="padding: 12px;">Hospital Charges</td>
+                                <td style="padding: 12px; text-align: right;">LKR ${parseFloat(appt.hospital_charges).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                            ${appt.additional_expenses ? appt.additional_expenses.map(exp => `
+                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                    <td style="padding: 12px;">${exp.service_description}</td>
+                                    <td style="padding: 12px; text-align: right;">LKR ${parseFloat(exp.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                </tr>
+                            `).join('') : ''}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f8fafc;">
+                                <td style="padding: 15px; font-weight: 700; color: #1e293b; text-align: right;">TOTAL AMOUNT</td>
+                                <td style="padding: 15px; text-align: right; font-weight: 800; color: #2563eb; font-size: 18px;">
+                                    LKR ${appt.bill ? parseFloat(appt.bill.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(appt.doctor_charges) + parseFloat(appt.hospital_charges)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    
+                    <div style="text-align: center; margin-top: 30px; border-top: 1px dashed #cbd5e1; padding-top: 15px;">
+                        <p style="font-size: 12px; color: #64748b; font-style: italic;">
+                            "Thank you for choosing us! Get well soon."
+                        </p>
+                    </div>
                 </div>
             `;
         }
@@ -633,7 +670,7 @@
             console.log('🔍 showBill called with:', appt);
             const billContent = document.getElementById('billContent');
             const billModal = document.getElementById('billModal');
-            
+
             if (!billContent) {
                 console.error('❌ billContent element not found');
                 return;
@@ -642,13 +679,13 @@
                 console.error('❌ billModal element not found');
                 return;
             }
-            
+
             console.log('🔍 Generating bill HTML...');
             billContent.innerHTML = generateBillHTML(appt);
-            
+
             // Update payment status section
             updatePaymentStatusDisplay(appt);
-            
+
             console.log('🔍 Adding active class to modal...');
             ModalManager.open('billModal', 'medium');
             console.log('🔍 Bill modal should now be visible');
@@ -659,13 +696,13 @@
             const currentStatusSpan = document.getElementById('currentPaymentStatus');
             const statusSelect = document.getElementById('paymentStatusSelect');
             const updateBtn = document.getElementById('updatePaymentBtn');
-            
+
             // Check if elements exist
             if (!currentStatusSpan || !statusSelect || !updateBtn) {
                 console.error('Payment status elements not found');
                 return;
             }
-            
+
             if (!appt || !appt.bill) {
                 // No bill exists yet
                 currentStatusSpan.textContent = 'No Bill Generated';
@@ -676,13 +713,13 @@
                 updateBtn.removeAttribute('data-bill-id');
                 return;
             }
-            
+
             const status = appt.bill.payment_status || 'Pending';
             const billId = appt.bill.bill_id;
-            
+
             // Update display
             currentStatusSpan.textContent = status;
-            
+
             // Style based on status
             switch (status) {
                 case 'Paid':
@@ -697,7 +734,7 @@
                     currentStatusSpan.style.background = '#fef2f2';
                     currentStatusSpan.style.color = '#dc2626';
             }
-            
+
             // Enable controls and set values
             statusSelect.value = status;
             statusSelect.disabled = false;
@@ -709,30 +746,30 @@
         async function updatePaymentStatus() {
             const updateBtn = document.getElementById('updatePaymentBtn');
             const statusSelect = document.getElementById('paymentStatusSelect');
-            
+
             if (!updateBtn || !statusSelect) {
                 showToast('Payment status elements not found', 'error');
                 return;
             }
-            
+
             const billId = updateBtn.getAttribute('data-bill-id');
             const newStatus = statusSelect.value;
-            
+
             if (!billId) {
                 showToast('No bill ID found', 'error');
                 return;
             }
-            
+
             if (!newStatus) {
                 showToast('Please select a payment status', 'error');
                 return;
             }
-            
+
             // Show loading state
             const originalText = updateBtn.textContent;
             updateBtn.disabled = true;
             updateBtn.textContent = 'Updating...';
-            
+
             try {
                 // Make API call
                 const response = await fetch(`/api/bills/${billId}/payment-status`, {
@@ -745,19 +782,19 @@
                         payment_status: newStatus
                     })
                 });
-                
+
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ detail: 'Update failed' }));
                     throw new Error(errorData.detail || `HTTP ${response.status}`);
                 }
-                
+
                 const result = await response.json();
-                
+
                 // Update the display
                 const currentStatusSpan = document.getElementById('currentPaymentStatus');
                 if (currentStatusSpan) {
                     currentStatusSpan.textContent = newStatus;
-                    
+
                     // Update styling
                     switch (newStatus) {
                         case 'Paid':
@@ -773,9 +810,9 @@
                             currentStatusSpan.style.color = '#dc2626';
                     }
                 }
-                
+
                 showToast(`Payment status updated to ${newStatus}`, 'success');
-                
+
                 // Refresh the appointments list
                 if (typeof loadTodayAppointments === 'function') {
                     loadTodayAppointments();
@@ -783,7 +820,6 @@
                 if (typeof loadAllAppointments === 'function') {
                     loadAllAppointments();
                 }
-                
             } catch (error) {
                 console.error('Error updating payment status:', error);
                 showToast(`Failed to update payment status: ${error.message}`, 'error');
@@ -794,9 +830,34 @@
             }
         }
 
-        // Close bill modal
-        function closeBillModal() {
-            ModalManager.close('billModal');
+        // Print bill function - creates a new window with only the bill content
+        function printBill() {
+            const billContent = document.getElementById('billContent');
+            if (!billContent) {
+                console.error('Bill content not found');
+                return;
+            }
+
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank', 'width=800,height=600,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+            
+            // Build HTML content with simple CSS
+            let htmlContent = '<!DOCTYPE html>';
+            htmlContent += '<html><head><title>Invoice</title>';
+            htmlContent += '<style>';
+            htmlContent += 'body { font-family: Arial, sans-serif; margin: 20px; color: #333; }';
+            htmlContent += 'table { width: 100%; border-collapse: collapse; margin: 20px 0; }';
+            htmlContent += 'th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }';
+            htmlContent += 'th { background-color: #f8f9fa; font-weight: 600; }';
+            htmlContent += '.token-number { font-size: 32px; font-weight: bold; color: #2563eb; }';
+            htmlContent += '@media print { body { margin: 15px; } }';
+            htmlContent += '</style></head><body>';
+            htmlContent += billContent.innerHTML;
+            htmlContent += '<script>window.onload = function() { window.focus(); window.print(); window.close(); };<\/script>';
+            htmlContent += '</body></html>';
+            
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
         }
 
         // View appointment bill
@@ -847,17 +908,17 @@
         // Populate filter dropdowns with doctors
         function populateFilterDropdowns() {
             const doctors = [...new Set([...todayAppointments, ...allAppointments].map(a => a.doctor_name).filter(Boolean))];
-            
+
             const todayDoctorFilter = document.getElementById('todayDoctorFilter');
             const allDoctorFilter = document.getElementById('allDoctorFilter');
-            
+
             if (todayDoctorFilter) {
-                todayDoctorFilter.innerHTML = '<option value="">All Doctors</option>' + 
+                todayDoctorFilter.innerHTML = '<option value="">All Doctors</option>' +
                     doctors.map(doctor => `<option value="${doctor}">${doctor}</option>`).join('');
             }
-            
+
             if (allDoctorFilter) {
-                allDoctorFilter.innerHTML = '<option value="">All Doctors</option>' + 
+                allDoctorFilter.innerHTML = '<option value="">All Doctors</option>' +
                     doctors.map(doctor => `<option value="${doctor}">${doctor}</option>`).join('');
             }
         }
@@ -870,10 +931,9 @@
                     <td>${a.patient_name || 'N/A'}</td>
                     <td>${a.doctor_name || 'N/A'}</td>
                     <td>${new Date(a.created_at).toLocaleTimeString()}</td>
-                    <td>Rs. ${parseFloat(a.bill_total || 0).toFixed(2)}</td>
+                    <td>LKR ${parseFloat(a.bill_total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
-                        
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="6" style="text-align:center;">No appointments today</td></tr>';
@@ -887,7 +947,7 @@
                     <td>${a.patient_name || 'N/A'}</td>
                     <td>${a.doctor_name || 'N/A'}</td>
                     <td>${formatDate(a.appointment_date)}</td>
-                    <td>Rs. ${parseFloat(a.bill_total || 0).toFixed(2)}</td>
+                    <td>LKR ${parseFloat(a.bill_total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="viewAppointmentBill(${a.appointment_id})">View Bill</button>
                         <span class="status-badge status-${a.status.toLowerCase()}">${a.status}</span>
@@ -925,7 +985,7 @@
                 const doctorMatch = !doctorFilter || (appointment.doctor_name && appointment.doctor_name.toLowerCase().includes(doctorFilter));
                 const statusMatch = !statusFilter || (appointment.status && appointment.status.toLowerCase() === statusFilter);
                 const patientMatch = !patientFilter || (appointment.patient_name && appointment.patient_name.toLowerCase().includes(patientFilter));
-                
+
                 let dateMatch = true;
                 if (dateFromFilter || dateToFilter) {
                     const appointmentDate = new Date(appointment.appointment_date);
@@ -974,7 +1034,7 @@
         // Save patient from appointment page
         async function savePatientFromAppointment(e) {
             e.preventDefault();
-            
+
             const data = {
                 patient_name: document.getElementById('patientName').value,
                 age: parseInt(document.getElementById('patientAge').value),
@@ -988,12 +1048,11 @@
                 const newPatient = await API.Patients.create(data);
                 showToast('Patient registered successfully!', 'success');
                 ModalManager.close('patientModal');
-                
+
                 // Refresh patient dropdown and auto-select the new patient
                 await populateDropdowns();
                 document.getElementById('appointmentPatient').value = newPatient.patient_id;
                 await fillPatientDetails();
-                
             } catch (error) {
                 console.error('Error saving patient:', error);
                 showToast(error.message || 'Failed to save patient', 'error');
