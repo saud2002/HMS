@@ -122,8 +122,8 @@
                     <td>${d.doctor_id}</td>
                     <td>${d.doctor_name}</td>
                     <td>${d.specialization}</td>
-                    <td>$${d.consultation_charges.toLocaleString()}</td>
-                    <td>$${d.hospital_charges.toLocaleString()}</td>
+                    <td>LKR ${d.consultation_charges.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>LKR ${d.hospital_charges.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
                     <td>
                         <div class="action-buttons">
